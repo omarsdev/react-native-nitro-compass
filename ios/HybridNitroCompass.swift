@@ -24,7 +24,7 @@ class HybridNitroCompass: HybridNitroCompassSpec {
   private var lastQuality: AccuracyQuality?
   private var calibrationCb: ((AccuracyQuality) -> Void)?
   private var pauseOnBackground: Bool = true
-  private var isStarted: Bool = false
+  private var started: Bool = false
   private var isSubscribed: Bool = false
   private var activeFilterDegrees: Double = 1
 
@@ -51,7 +51,7 @@ class HybridNitroCompass: HybridNitroCompassSpec {
 
     onSample = onHeading
     activeFilterDegrees = filterDegrees
-    isStarted = true
+    started = true
 
     let proxy = HeadingDelegate(
       onSample: { [weak self] heading, accuracy in
@@ -104,6 +104,22 @@ class HybridNitroCompass: HybridNitroCompassSpec {
     return CLLocationManager.headingAvailable()
   }
 
+  func isStarted() throws -> Bool {
+    return started
+  }
+
+  func setFilter(degrees: Double) throws {
+    activeFilterDegrees = degrees
+    if isSubscribed {
+      manager.headingFilter = degrees == 0 ? kCLHeadingFilterNone : degrees
+    }
+  }
+
+  func getDiagnostics() throws -> SensorDiagnostics? {
+    guard CLLocationManager.headingAvailable() else { return nil }
+    return SensorDiagnostics(sensor: .corelocation)
+  }
+
   func getCurrentHeading() throws -> CompassSample? {
     return lastSample
   }
@@ -118,9 +134,9 @@ class HybridNitroCompass: HybridNitroCompassSpec {
 
   func setPauseOnBackground(enabled: Bool) throws {
     pauseOnBackground = enabled
-    if enabled, isStarted, isSubscribed, isAppBackgrounded() {
+    if enabled, started, isSubscribed, isAppBackgrounded() {
       unsubscribe()
-    } else if !enabled, isStarted, !isSubscribed {
+    } else if !enabled, started, !isSubscribed {
       subscribe()
     }
   }
@@ -141,13 +157,13 @@ class HybridNitroCompass: HybridNitroCompassSpec {
   }
 
   private func handleBackground() {
-    if pauseOnBackground, isStarted, isSubscribed {
+    if pauseOnBackground, started, isSubscribed {
       unsubscribe()
     }
   }
 
   private func handleForeground() {
-    if pauseOnBackground, isStarted, !isSubscribed {
+    if pauseOnBackground, started, !isSubscribed {
       subscribe()
     }
   }
@@ -158,7 +174,7 @@ class HybridNitroCompass: HybridNitroCompassSpec {
   }
 
   private func stopInternal() {
-    isStarted = false
+    started = false
     unsubscribe()
     if delegateProxy != nil {
       manager.delegate = nil

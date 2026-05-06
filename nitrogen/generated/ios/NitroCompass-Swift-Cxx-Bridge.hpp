@@ -14,6 +14,10 @@ namespace margelo::nitro::nitrocompass { enum class AccuracyQuality; }
 namespace margelo::nitro::nitrocompass { struct CompassSample; }
 // Forward declaration of `HybridNitroCompassSpec` to properly resolve imports.
 namespace margelo::nitro::nitrocompass { class HybridNitroCompassSpec; }
+// Forward declaration of `SensorDiagnostics` to properly resolve imports.
+namespace margelo::nitro::nitrocompass { struct SensorDiagnostics; }
+// Forward declaration of `SensorKind` to properly resolve imports.
+namespace margelo::nitro::nitrocompass { enum class SensorKind; }
 
 // Forward declarations of Swift defined types
 // Forward declaration of `HybridNitroCompassSpec_cxx` to properly resolve imports.
@@ -23,6 +27,8 @@ namespace NitroCompass { class HybridNitroCompassSpec_cxx; }
 #include "AccuracyQuality.hpp"
 #include "CompassSample.hpp"
 #include "HybridNitroCompassSpec.hpp"
+#include "SensorDiagnostics.hpp"
+#include "SensorKind.hpp"
 #include <NitroModules/Result.hpp>
 #include <exception>
 #include <functional>
@@ -55,6 +61,21 @@ namespace margelo::nitro::nitrocompass::bridge::swift {
   Func_void_CompassSample create_Func_void_CompassSample(void* NON_NULL swiftClosureWrapper) noexcept;
   inline Func_void_CompassSample_Wrapper wrap_Func_void_CompassSample(Func_void_CompassSample value) noexcept {
     return Func_void_CompassSample_Wrapper(std::move(value));
+  }
+  
+  // pragma MARK: std::optional<SensorDiagnostics>
+  /**
+   * Specialized version of `std::optional<SensorDiagnostics>`.
+   */
+  using std__optional_SensorDiagnostics_ = std::optional<SensorDiagnostics>;
+  inline std::optional<SensorDiagnostics> create_std__optional_SensorDiagnostics_(const SensorDiagnostics& value) noexcept {
+    return std::optional<SensorDiagnostics>(value);
+  }
+  inline bool has_value_std__optional_SensorDiagnostics_(const std::optional<SensorDiagnostics>& optional) noexcept {
+    return optional.has_value();
+  }
+  inline SensorDiagnostics get_std__optional_SensorDiagnostics_(const std::optional<SensorDiagnostics>& optional) noexcept {
+    return optional.value();
   }
   
   // pragma MARK: std::optional<CompassSample>
@@ -122,6 +143,15 @@ namespace margelo::nitro::nitrocompass::bridge::swift {
   }
   inline Result_bool_ create_Result_bool_(const std::exception_ptr& error) noexcept {
     return Result<bool>::withError(error);
+  }
+  
+  // pragma MARK: Result<std::optional<SensorDiagnostics>>
+  using Result_std__optional_SensorDiagnostics__ = Result<std::optional<SensorDiagnostics>>;
+  inline Result_std__optional_SensorDiagnostics__ create_Result_std__optional_SensorDiagnostics__(const std::optional<SensorDiagnostics>& value) noexcept {
+    return Result<std::optional<SensorDiagnostics>>::withValue(value);
+  }
+  inline Result_std__optional_SensorDiagnostics__ create_Result_std__optional_SensorDiagnostics__(const std::exception_ptr& error) noexcept {
+    return Result<std::optional<SensorDiagnostics>>::withError(error);
   }
   
   // pragma MARK: Result<std::optional<CompassSample>>

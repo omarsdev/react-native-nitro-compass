@@ -152,6 +152,47 @@ open class HybridNitroCompassSpec_cxx {
   }
   
   @inline(__always)
+  public final func isStarted() -> bridge.Result_bool_ {
+    do {
+      let __result = try self.__implementation.isStarted()
+      let __resultCpp = __result
+      return bridge.create_Result_bool_(__resultCpp)
+    } catch (let __error) {
+      let __exceptionPtr = __error.toCpp()
+      return bridge.create_Result_bool_(__exceptionPtr)
+    }
+  }
+  
+  @inline(__always)
+  public final func setFilter(degrees: Double) -> bridge.Result_void_ {
+    do {
+      try self.__implementation.setFilter(degrees: degrees)
+      return bridge.create_Result_void_()
+    } catch (let __error) {
+      let __exceptionPtr = __error.toCpp()
+      return bridge.create_Result_void_(__exceptionPtr)
+    }
+  }
+  
+  @inline(__always)
+  public final func getDiagnostics() -> bridge.Result_std__optional_SensorDiagnostics__ {
+    do {
+      let __result = try self.__implementation.getDiagnostics()
+      let __resultCpp = { () -> bridge.std__optional_SensorDiagnostics_ in
+        if let __unwrappedValue = __result {
+          return bridge.create_std__optional_SensorDiagnostics_(__unwrappedValue)
+        } else {
+          return .init()
+        }
+      }()
+      return bridge.create_Result_std__optional_SensorDiagnostics__(__resultCpp)
+    } catch (let __error) {
+      let __exceptionPtr = __error.toCpp()
+      return bridge.create_Result_std__optional_SensorDiagnostics__(__exceptionPtr)
+    }
+  }
+  
+  @inline(__always)
   public final func hasCompass() -> bridge.Result_bool_ {
     do {
       let __result = try self.__implementation.hasCompass()

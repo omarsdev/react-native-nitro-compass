@@ -48,9 +48,12 @@ NitroCompass.stop()
 ```ts
 NitroCompass.start(filterDegrees: number, onHeading: (sample: CompassSample) => void): void
 NitroCompass.stop(): void
+NitroCompass.isStarted(): boolean
 NitroCompass.hasCompass(): boolean
 
+NitroCompass.setFilter(degrees: number): void
 NitroCompass.getCurrentHeading(): CompassSample | undefined
+NitroCompass.getDiagnostics(): SensorDiagnostics | undefined
 NitroCompass.setDeclination(degrees: number): void
 NitroCompass.setOnCalibrationNeeded(onChange: (quality: AccuracyQuality) => void): void
 NitroCompass.setPauseOnBackground(enabled: boolean): void
@@ -61,9 +64,13 @@ interface CompassSample {
 }
 
 type AccuracyQuality = 'high' | 'medium' | 'low' | 'unreliable'
+type SensorKind = 'rotationVector' | 'geomagneticRotationVector' | 'coreLocation'
+interface SensorDiagnostics { sensor: SensorKind }
 ```
 
-- `filterDegrees` — minimum change between successive samples before the next one is delivered. Pass `0` for "every event"; typical UI values are `1`–`3`.
+- `filterDegrees` — minimum change between successive samples before the next one is delivered. Pass `0` for "every event"; typical UI values are `1`–`3`. Use `setFilter()` to change live without tearing down the subscription.
+- `start()` is idempotent in the destructive sense — calling it while already started silently replaces the previous subscription with the new callback. `stop()` is idempotent and safe from inside the `onHeading` callback.
+- `getDiagnostics()` reports which sensor would produce headings on this device — useful for explaining quality differences (e.g. a phone falling back to `geomagneticRotationVector` will be more susceptible to magnetic interference than one using `rotationVector`). Safe to call before `start()`.
 - `accuracy` is a numeric uncertainty (degrees). On iOS it comes from `CLHeading.headingAccuracy` directly. On Android it comes from `event.values[4]` of the rotation-vector sensor; if the sensor stack does not publish that (rare), the module falls back to a coarse degree estimate from `SensorManager.SENSOR_STATUS_*` (`HIGH→5°`, `MEDIUM→15°`, `LOW→30°`).
 - `getCurrentHeading()` returns the most recently emitted sample (with declination already applied), or `undefined` if not started yet or no sample has arrived.
 

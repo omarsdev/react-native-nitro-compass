@@ -41,7 +41,7 @@ class HybridNitroCompass : HybridNitroCompassSpec() {
   @Volatile private var lastQuality: AccuracyQuality? = null
   @Volatile private var declinationDeg: Double = 0.0
   @Volatile private var pauseOnBackground: Boolean = true
-  @Volatile private var isStarted: Boolean = false
+  @Volatile private var started: Boolean = false
   @Volatile private var isSubscribed: Boolean = false
   @Volatile private var activeFilterDegrees: Double = 1.0
 
@@ -66,7 +66,7 @@ class HybridNitroCompass : HybridNitroCompassSpec() {
   override fun start(filterDegrees: Double, onHeading: (sample: CompassSample) -> Unit) {
     synchronized(this) {
       stopLocked()
-      isStarted = true
+      started = true
       activeFilterDegrees = filterDegrees
       filterDeg = filterDegrees.coerceAtLeast(0.0)
       this.onHeading = onHeading
@@ -93,6 +93,25 @@ class HybridNitroCompass : HybridNitroCompassSpec() {
       sm.getDefaultSensor(Sensor.TYPE_GEOMAGNETIC_ROTATION_VECTOR) != null
   }
 
+  override fun isStarted(): Boolean = started
+
+  override fun setFilter(degrees: Double) {
+    activeFilterDegrees = degrees
+    filterDeg = degrees.coerceAtLeast(0.0)
+  }
+
+  override fun getDiagnostics(): SensorDiagnostics? {
+    val sm = NitroModules.applicationContext?.getSystemService(Context.SENSOR_SERVICE) as? SensorManager
+      ?: return null
+    return when {
+      sm.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR) != null ->
+        SensorDiagnostics(SensorKind.ROTATIONVECTOR)
+      sm.getDefaultSensor(Sensor.TYPE_GEOMAGNETIC_ROTATION_VECTOR) != null ->
+        SensorDiagnostics(SensorKind.GEOMAGNETICROTATIONVECTOR)
+      else -> null
+    }
+  }
+
   override fun getCurrentHeading(): CompassSample? = lastSample
 
   override fun setDeclination(degrees: Double) {
@@ -106,16 +125,16 @@ class HybridNitroCompass : HybridNitroCompassSpec() {
   override fun setPauseOnBackground(enabled: Boolean) {
     synchronized(this) {
       pauseOnBackground = enabled
-      if (enabled && isStarted && isSubscribed && activityCounter.get() == 0) {
+      if (enabled && started && isSubscribed && activityCounter.get() == 0) {
         unsubscribeLocked()
-      } else if (!enabled && isStarted && !isSubscribed) {
+      } else if (!enabled && started && !isSubscribed) {
         subscribeLocked()
       }
     }
   }
 
   private fun stopLocked() {
-    isStarted = false
+    started = false
     unsubscribeLocked()
     unregisterLifecycleCallbacks()
     onHeading = null
@@ -205,7 +224,7 @@ class HybridNitroCompass : HybridNitroCompassSpec() {
 
   private fun handleBackground() {
     synchronized(this) {
-      if (pauseOnBackground && isStarted && isSubscribed) {
+      if (pauseOnBackground && started && isSubscribed) {
         unsubscribeLocked()
       }
     }
@@ -213,7 +232,7 @@ class HybridNitroCompass : HybridNitroCompassSpec() {
 
   private fun handleForeground() {
     synchronized(this) {
-      if (pauseOnBackground && isStarted && !isSubscribed) {
+      if (pauseOnBackground && started && !isSubscribed) {
         subscribeLocked()
       }
     }

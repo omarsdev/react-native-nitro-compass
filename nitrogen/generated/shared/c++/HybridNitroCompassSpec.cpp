@@ -16,6 +16,9 @@ namespace margelo::nitro::nitrocompass {
     registerHybrids(this, [](Prototype& prototype) {
       prototype.registerHybridMethod("start", &HybridNitroCompassSpec::start);
       prototype.registerHybridMethod("stop", &HybridNitroCompassSpec::stop);
+      prototype.registerHybridMethod("isStarted", &HybridNitroCompassSpec::isStarted);
+      prototype.registerHybridMethod("setFilter", &HybridNitroCompassSpec::setFilter);
+      prototype.registerHybridMethod("getDiagnostics", &HybridNitroCompassSpec::getDiagnostics);
       prototype.registerHybridMethod("hasCompass", &HybridNitroCompassSpec::hasCompass);
       prototype.registerHybridMethod("getCurrentHeading", &HybridNitroCompassSpec::getCurrentHeading);
       prototype.registerHybridMethod("setDeclination", &HybridNitroCompassSpec::setDeclination);

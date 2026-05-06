@@ -43,6 +43,18 @@ abstract class HybridNitroCompassSpec: HybridObject() {
   
   @DoNotStrip
   @Keep
+  abstract fun isStarted(): Boolean
+  
+  @DoNotStrip
+  @Keep
+  abstract fun setFilter(degrees: Double): Unit
+  
+  @DoNotStrip
+  @Keep
+  abstract fun getDiagnostics(): SensorDiagnostics?
+  
+  @DoNotStrip
+  @Keep
   abstract fun hasCompass(): Boolean
   
   @DoNotStrip

@@ -14,12 +14,18 @@ namespace NitroCompass { class HybridNitroCompassSpec_cxx; }
 
 // Forward declaration of `CompassSample` to properly resolve imports.
 namespace margelo::nitro::nitrocompass { struct CompassSample; }
+// Forward declaration of `SensorDiagnostics` to properly resolve imports.
+namespace margelo::nitro::nitrocompass { struct SensorDiagnostics; }
+// Forward declaration of `SensorKind` to properly resolve imports.
+namespace margelo::nitro::nitrocompass { enum class SensorKind; }
 // Forward declaration of `AccuracyQuality` to properly resolve imports.
 namespace margelo::nitro::nitrocompass { enum class AccuracyQuality; }
 
 #include "CompassSample.hpp"
 #include <functional>
+#include "SensorDiagnostics.hpp"
 #include <optional>
+#include "SensorKind.hpp"
 #include "AccuracyQuality.hpp"
 
 #include "NitroCompass-Swift-Cxx-Umbrella.hpp"
@@ -83,6 +89,28 @@ namespace margelo::nitro::nitrocompass {
       if (__result.hasError()) [[unlikely]] {
         std::rethrow_exception(__result.error());
       }
+    }
+    inline bool isStarted() override {
+      auto __result = _swiftPart.isStarted();
+      if (__result.hasError()) [[unlikely]] {
+        std::rethrow_exception(__result.error());
+      }
+      auto __value = std::move(__result.value());
+      return __value;
+    }
+    inline void setFilter(double degrees) override {
+      auto __result = _swiftPart.setFilter(std::forward<decltype(degrees)>(degrees));
+      if (__result.hasError()) [[unlikely]] {
+        std::rethrow_exception(__result.error());
+      }
+    }
+    inline std::optional<SensorDiagnostics> getDiagnostics() override {
+      auto __result = _swiftPart.getDiagnostics();
+      if (__result.hasError()) [[unlikely]] {
+        std::rethrow_exception(__result.error());
+      }
+      auto __value = std::move(__result.value());
+      return __value;
     }
     inline bool hasCompass() override {
       auto __result = _swiftPart.hasCompass();

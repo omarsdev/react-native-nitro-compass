@@ -14,11 +14,17 @@ namespace margelo::nitro::nitrocompass { enum class AccuracyQuality; }
 namespace margelo::nitro::nitrocompass { struct CompassSample; }
 // Forward declaration of `HybridNitroCompassSpec` to properly resolve imports.
 namespace margelo::nitro::nitrocompass { class HybridNitroCompassSpec; }
+// Forward declaration of `SensorDiagnostics` to properly resolve imports.
+namespace margelo::nitro::nitrocompass { struct SensorDiagnostics; }
+// Forward declaration of `SensorKind` to properly resolve imports.
+namespace margelo::nitro::nitrocompass { enum class SensorKind; }
 
 // Include C++ defined types
 #include "AccuracyQuality.hpp"
 #include "CompassSample.hpp"
 #include "HybridNitroCompassSpec.hpp"
+#include "SensorDiagnostics.hpp"
+#include "SensorKind.hpp"
 #include <NitroModules/Result.hpp>
 #include <exception>
 #include <functional>

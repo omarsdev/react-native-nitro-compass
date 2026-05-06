@@ -7,13 +7,21 @@
 
 #include "JHybridNitroCompassSpec.hpp"
 
+// Forward declaration of `SensorDiagnostics` to properly resolve imports.
+namespace margelo::nitro::nitrocompass { struct SensorDiagnostics; }
+// Forward declaration of `SensorKind` to properly resolve imports.
+namespace margelo::nitro::nitrocompass { enum class SensorKind; }
 // Forward declaration of `CompassSample` to properly resolve imports.
 namespace margelo::nitro::nitrocompass { struct CompassSample; }
 // Forward declaration of `AccuracyQuality` to properly resolve imports.
 namespace margelo::nitro::nitrocompass { enum class AccuracyQuality; }
 
-#include "CompassSample.hpp"
+#include "SensorDiagnostics.hpp"
 #include <optional>
+#include "JSensorDiagnostics.hpp"
+#include "SensorKind.hpp"
+#include "JSensorKind.hpp"
+#include "CompassSample.hpp"
 #include "JCompassSample.hpp"
 #include <functional>
 #include "JFunc_void_CompassSample.hpp"
@@ -62,6 +70,20 @@ namespace margelo::nitro::nitrocompass {
   void JHybridNitroCompassSpec::stop() {
     static const auto method = _javaPart->javaClassStatic()->getMethod<void()>("stop");
     method(_javaPart);
+  }
+  bool JHybridNitroCompassSpec::isStarted() {
+    static const auto method = _javaPart->javaClassStatic()->getMethod<jboolean()>("isStarted");
+    auto __result = method(_javaPart);
+    return static_cast<bool>(__result);
+  }
+  void JHybridNitroCompassSpec::setFilter(double degrees) {
+    static const auto method = _javaPart->javaClassStatic()->getMethod<void(double /* degrees */)>("setFilter");
+    method(_javaPart, degrees);
+  }
+  std::optional<SensorDiagnostics> JHybridNitroCompassSpec::getDiagnostics() {
+    static const auto method = _javaPart->javaClassStatic()->getMethod<jni::local_ref<JSensorDiagnostics>()>("getDiagnostics");
+    auto __result = method(_javaPart);
+    return __result != nullptr ? std::make_optional(__result->toCpp()) : std::nullopt;
   }
   bool JHybridNitroCompassSpec::hasCompass() {
     static const auto method = _javaPart->javaClassStatic()->getMethod<jboolean()>("hasCompass");

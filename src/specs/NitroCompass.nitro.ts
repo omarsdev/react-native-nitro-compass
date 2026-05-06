@@ -32,6 +32,27 @@ export interface CompassSample {
 export type AccuracyQuality = 'high' | 'medium' | 'low' | 'unreliable'
 
 /**
+ * Identifies which underlying sensor / framework is producing headings.
+ *
+ * - `rotationVector` — Android `Sensor.TYPE_ROTATION_VECTOR` (gyro + accel
+ *   + magnetometer fused). Best quality.
+ * - `geomagneticRotationVector` — Android
+ *   `Sensor.TYPE_GEOMAGNETIC_ROTATION_VECTOR` (accel + magnetometer only).
+ *   Used as fallback on gyroless / budget devices; lower update rate and
+ *   more susceptible to magnetic interference.
+ * - `coreLocation` — iOS `CLLocationManager` heading. Apple's stack
+ *   handles fusion natively.
+ */
+export type SensorKind =
+  | 'rotationVector'
+  | 'geomagneticRotationVector'
+  | 'coreLocation'
+
+export interface SensorDiagnostics {
+  sensor: SensorKind
+}
+
+/**
  * Native compass module. Pull this from `NitroModules.createHybridObject`
  * via the bundled `NitroCompass` export, e.g.:
  *
@@ -46,18 +67,37 @@ export type AccuracyQuality = 'high' | 'medium' | 'low' | 'unreliable'
  */
 export interface NitroCompass extends HybridObject<{ ios: 'swift'; android: 'kotlin' }> {
   /**
-   * Begin emitting heading samples to `onHeading`.
+   * Begin emitting heading samples to `onHeading`. If `start()` has already
+   * been called without a matching `stop()`, the previous subscription is
+   * silently torn down and replaced — the old `onHeading` is detached.
    *
    * @param filterDegrees Minimum change (in degrees) between samples before
    *   the next one is emitted. Pass `0` for "every event"; typical UI values
-   *   are 1–3.
+   *   are 1–3. Use `setFilter()` to update without restarting.
    * @param onHeading JS callback invoked on each accepted sample. Called on
-   *   the JS thread.
+   *   the JS thread; calling `stop()` from inside this callback is safe.
    */
   start(filterDegrees: number, onHeading: (sample: CompassSample) => void): void
 
-  /** Stop the underlying sensor / location-manager subscription. */
+  /** Stop the underlying sensor / location-manager subscription. Idempotent — safe to call when not started. */
   stop(): void
+
+  /** Whether `start()` has been called without a matching `stop()`. */
+  isStarted(): boolean
+
+  /**
+   * Update the deadband filter live without tearing down the subscription.
+   * Same semantics as the `filterDegrees` argument to `start()`. Has no
+   * effect until `start()` is called.
+   */
+  setFilter(degrees: number): void
+
+  /**
+   * Describe which underlying sensor / framework would produce headings on
+   * this device. Returns `undefined` if the device has no compass hardware
+   * (equivalent to `hasCompass() === false`). Safe to call before `start()`.
+   */
+  getDiagnostics(): SensorDiagnostics | undefined
 
   /**
    * Whether the device has the hardware required for a compass reading.
