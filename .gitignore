@@ -43,9 +43,21 @@ android.iml
 # Cocoapods
 #
 example/ios/Pods
+example/ios/build
+example/ios/.xcode.env.local
 
 # Ruby
 example/vendor/
+
+# Android build output
+example/android/.gradle
+example/android/build
+example/android/app/build
+example/android/.kotlin
+example/android/local.properties
+
+# RN CLI generated
+example/.bundle
 
 # node.js
 #

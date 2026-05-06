@@ -77,6 +77,41 @@ const trueHeading = (heading + declination + 360) % 360
 - **iOS**: requires `NSLocationWhenInUseUsageDescription` in `Info.plist`. `CLLocationManager` only emits headings when location permission is granted.
 - **Android**: no permission required for the rotation-vector sensor.
 
+## Example app
+
+A bare React Native CLI app under [example/](./example) (RN 0.84.1, New Arch enabled) consumes the library via a local symlink. Use it to test changes on a real device — the iOS Simulator has no compass and the Android emulator's magnetometer is faked.
+
+First-time setup:
+
+```sh
+cd example
+npm install                       # symlinks ../ as react-native-nitro-compass
+cd ios && bundle install && bundle exec pod install && cd ..
+```
+
+Run on a device:
+
+```sh
+# Terminal 1 — Metro
+npm start
+
+# Terminal 2 — build & launch
+npm run ios -- --device           # physical iPhone
+npm run android                   # physical device or emulator
+```
+
+If you change the Nitrogen spec or any native source, regenerate and rebuild:
+
+```sh
+# from the repo root
+npm run codegen
+# then in example/
+cd ios && bundle exec pod install && cd ..   # iOS only
+npm run ios       # or npm run android
+```
+
+The example imports `NitroCompass` directly from the workspace `src/` (via Metro `watchFolders`), so editing TypeScript only requires a Metro reload.
+
 ## Acknowledgments
 
 The Android rotation-vector pattern (sensor fusion, surface-rotation remapping, `getOrientation` extraction) is adapted from the MIT-licensed [Andromeda](https://github.com/kylecorry31/andromeda) sensor library by Kyle Corry, which powers the [Trail Sense](https://github.com/kylecorry31/Trail-Sense) wilderness navigation app.
