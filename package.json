@@ -1,6 +1,9 @@
 {
   "name": "react-native-nitro-compass",
   "version": "0.1.0",
+  "engines": {
+    "node": ">=18"
+  },
   "description": "Fast, accurate compass heading for React Native, powered by Nitro Modules. Uses Android TYPE_ROTATION_VECTOR sensor fusion and iOS CLHeading.",
   "main": "./lib/commonjs/index.js",
   "module": "./lib/module/index.js",
@@ -28,8 +31,10 @@
   ],
   "files": [
     "src",
+    "!src/__tests__",
     "react-native.config.js",
     "lib",
+    "!lib/typescript/src/__tests__",
     "nitrogen",
     "cpp",
     "nitro.json",

@@ -50,26 +50,57 @@ NitroCompass.start(filterDegrees: number, onHeading: (sample: CompassSample) => 
 NitroCompass.stop(): void
 NitroCompass.hasCompass(): boolean
 
+NitroCompass.getCurrentHeading(): CompassSample | undefined
+NitroCompass.setDeclination(degrees: number): void
+NitroCompass.setOnCalibrationNeeded(onChange: (quality: AccuracyQuality) => void): void
+NitroCompass.setPauseOnBackground(enabled: boolean): void
+
 interface CompassSample {
-  heading: number   // degrees, [0, 360), magnetic
+  heading: number   // degrees, [0, 360); magnetic by default, true-north if setDeclination was called
   accuracy: number  // degrees, smaller is better; -1 if unknown
 }
+
+type AccuracyQuality = 'high' | 'medium' | 'low' | 'unreliable'
 ```
 
 - `filterDegrees` — minimum change between successive samples before the next one is delivered. Pass `0` for "every event"; typical UI values are `1`–`3`.
-- `accuracy` semantics differ slightly per platform:
-  - **iOS**: `CLHeading.headingAccuracy` directly.
-  - **Android**: `event.values[4]` from the rotation-vector sensor, converted to degrees. If the underlying sensor stack does not publish this (rare), the module maps `SensorManager.SENSOR_STATUS_*` to a coarse degree estimate (`HIGH→5°`, `MEDIUM→15°`, `LOW→30°`).
+- `accuracy` is a numeric uncertainty (degrees). On iOS it comes from `CLHeading.headingAccuracy` directly. On Android it comes from `event.values[4]` of the rotation-vector sensor; if the sensor stack does not publish that (rare), the module falls back to a coarse degree estimate from `SensorManager.SENSOR_STATUS_*` (`HIGH→5°`, `MEDIUM→15°`, `LOW→30°`).
+- `getCurrentHeading()` returns the most recently emitted sample (with declination already applied), or `undefined` if not started yet or no sample has arrived.
+
+### Calibration
+
+`setOnCalibrationNeeded(cb)` registers a callback fired whenever the calibration bucket transitions. Buckets are derived from numeric accuracy on both platforms using the same thresholds, so values agree across iOS and Android: `<5°` → `'high'`, `<15°` → `'medium'`, `<30°` → `'low'`, otherwise `'unreliable'`. On iOS, the system's "wave the device in a figure-8" prompt is suppressed and reported to your callback as `'unreliable'` — show your own UI when you receive that bucket.
+
+```ts
+NitroCompass.setOnCalibrationNeeded((q) => {
+  if (q === 'unreliable') showCalibrationToast()
+})
+```
 
 ### Magnetic vs true north
 
-Headings are **magnetic**. To convert to true north, look up the magnetic declination for the user's coordinates and add it. The [`geomagnetism`](https://www.npmjs.com/package/geomagnetism) npm package does this in pure JS without any external API calls.
+Headings are **magnetic** by default. You can either apply declination in JS, or let the native side do it once via `setDeclination(deg)` so every emitted sample (and `getCurrentHeading()`) is true-north.
 
 ```ts
 import geomagnetism from 'geomagnetism'
 
 const declination = geomagnetism.model().point([lat, lon]).decl
+
+// Option A — JS-side
 const trueHeading = (heading + declination + 360) % 360
+
+// Option B — native-side (subsequent samples are true-north)
+NitroCompass.setDeclination(declination)
+```
+
+Pass `0` to revert to magnetic. Declination survives `stop()`/`start()` cycles.
+
+### Background pause
+
+By default the underlying sensor / location-manager subscription is silently paused while the app is backgrounded and resumed when it returns to the foreground; the JS callback and any declination set via `setDeclination` are preserved across the pause. To opt out (e.g. for a fitness tracker that needs heading while screen-off):
+
+```ts
+NitroCompass.setPauseOnBackground(false)
 ```
 
 ## Permissions
