@@ -4,8 +4,10 @@ import type { HybridObject } from 'react-native-nitro-modules'
  * One compass heading sample, delivered to the JS callback registered with
  * `start()`. Both fields are in degrees.
  *
- * - `heading`: magnetic heading clockwise from north, in `[0, 360)`. Apply
- *   your own declination if you need true north.
+ * - `heading`: heading clockwise from north, in `[0, 360)`. Magnetic by
+ *   default; if you call `setDeclination(deg)` the offset is applied
+ *   natively before this sample is delivered (and reflected in
+ *   `getCurrentHeading()`).
  * - `accuracy`: estimated heading uncertainty in degrees, or `-1` when the
  *   platform has not yet reported a usable accuracy. Smaller is better.
  *   On Android this is read from `event.values[4]` of the rotation-vector
@@ -16,6 +18,18 @@ export interface CompassSample {
   heading: number
   accuracy: number
 }
+
+/**
+ * Coarse calibration bucket reported via `setOnCalibrationNeeded`. Buckets
+ * are derived from numeric heading accuracy on both platforms (same
+ * thresholds), so values agree across iOS and Android:
+ *
+ *   `<5°` → `high`, `<15°` → `medium`, `<30°` → `low`, otherwise `unreliable`.
+ *
+ * On iOS `unreliable` is also reported when the system asks to display
+ * its built-in calibration UI (we suppress it).
+ */
+export type AccuracyQuality = 'high' | 'medium' | 'low' | 'unreliable'
 
 /**
  * Native compass module. Pull this from `NitroModules.createHybridObject`
@@ -51,4 +65,26 @@ export interface NitroCompass extends HybridObject<{ ios: 'swift'; android: 'kot
    * iOS: `CLLocationManager.headingAvailable()`.
    */
   hasCompass(): boolean
+
+  /**
+   * Last sample emitted by the active subscription, with declination
+   * already applied. Returns `undefined` when not started, or when started
+   * but no sample has arrived yet.
+   */
+  getCurrentHeading(): CompassSample | undefined
+
+  /**
+   * Magnetic-to-true offset (degrees, signed) added to every heading
+   * before it leaves the native side. Pass `0` to revert to magnetic.
+   * Survives across `start`/`stop`. Apply your own declination from a
+   * model like `geomagnetism` keyed on the user's lat/lon.
+   */
+  setDeclination(degrees: number): void
+
+  /**
+   * Register a callback fired when the calibration bucket transitions.
+   * Replaces any previously registered callback. Pass a no-op to mute.
+   * The callback is invoked on the JS thread.
+   */
+  setOnCalibrationNeeded(onChange: (quality: AccuracyQuality) => void): void
 }

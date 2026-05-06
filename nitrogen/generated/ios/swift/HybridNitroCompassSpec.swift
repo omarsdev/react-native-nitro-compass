@@ -16,6 +16,9 @@ public protocol HybridNitroCompassSpec_protocol: HybridObject {
   func start(filterDegrees: Double, onHeading: @escaping (_ sample: CompassSample) -> Void) throws -> Void
   func stop() throws -> Void
   func hasCompass() throws -> Bool
+  func getCurrentHeading() throws -> CompassSample?
+  func setDeclination(degrees: Double) throws -> Void
+  func setOnCalibrationNeeded(onChange: @escaping (_ quality: AccuracyQuality) -> Void) throws -> Void
 }
 
 public extension HybridNitroCompassSpec_protocol {

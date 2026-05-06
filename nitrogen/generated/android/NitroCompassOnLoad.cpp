@@ -17,6 +17,7 @@
 
 #include "JHybridNitroCompassSpec.hpp"
 #include "JFunc_void_CompassSample.hpp"
+#include "JFunc_void_AccuracyQuality.hpp"
 #include <NitroModules/DefaultConstructableObject.hpp>
 
 namespace margelo::nitro::nitrocompass {
@@ -43,6 +44,7 @@ void registerAllNatives() {
   // Register native JNI methods
   margelo::nitro::nitrocompass::JHybridNitroCompassSpec::CxxPart::registerNatives();
   margelo::nitro::nitrocompass::JFunc_void_CompassSample_cxx::registerNatives();
+  margelo::nitro::nitrocompass::JFunc_void_AccuracyQuality_cxx::registerNatives();
 
   // Register Nitro Hybrid Objects
   HybridObjectRegistry::registerHybridObjectConstructor(

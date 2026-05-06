@@ -14,9 +14,13 @@ namespace NitroCompass { class HybridNitroCompassSpec_cxx; }
 
 // Forward declaration of `CompassSample` to properly resolve imports.
 namespace margelo::nitro::nitrocompass { struct CompassSample; }
+// Forward declaration of `AccuracyQuality` to properly resolve imports.
+namespace margelo::nitro::nitrocompass { enum class AccuracyQuality; }
 
 #include "CompassSample.hpp"
 #include <functional>
+#include <optional>
+#include "AccuracyQuality.hpp"
 
 #include "NitroCompass-Swift-Cxx-Umbrella.hpp"
 
@@ -87,6 +91,26 @@ namespace margelo::nitro::nitrocompass {
       }
       auto __value = std::move(__result.value());
       return __value;
+    }
+    inline std::optional<CompassSample> getCurrentHeading() override {
+      auto __result = _swiftPart.getCurrentHeading();
+      if (__result.hasError()) [[unlikely]] {
+        std::rethrow_exception(__result.error());
+      }
+      auto __value = std::move(__result.value());
+      return __value;
+    }
+    inline void setDeclination(double degrees) override {
+      auto __result = _swiftPart.setDeclination(std::forward<decltype(degrees)>(degrees));
+      if (__result.hasError()) [[unlikely]] {
+        std::rethrow_exception(__result.error());
+      }
+    }
+    inline void setOnCalibrationNeeded(const std::function<void(AccuracyQuality /* quality */)>& onChange) override {
+      auto __result = _swiftPart.setOnCalibrationNeeded(onChange);
+      if (__result.hasError()) [[unlikely]] {
+        std::rethrow_exception(__result.error());
+      }
     }
 
   private:

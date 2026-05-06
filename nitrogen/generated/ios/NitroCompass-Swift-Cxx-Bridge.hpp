@@ -8,6 +8,8 @@
 #pragma once
 
 // Forward declarations of C++ defined types
+// Forward declaration of `AccuracyQuality` to properly resolve imports.
+namespace margelo::nitro::nitrocompass { enum class AccuracyQuality; }
 // Forward declaration of `CompassSample` to properly resolve imports.
 namespace margelo::nitro::nitrocompass { struct CompassSample; }
 // Forward declaration of `HybridNitroCompassSpec` to properly resolve imports.
@@ -18,12 +20,14 @@ namespace margelo::nitro::nitrocompass { class HybridNitroCompassSpec; }
 namespace NitroCompass { class HybridNitroCompassSpec_cxx; }
 
 // Include C++ defined types
+#include "AccuracyQuality.hpp"
 #include "CompassSample.hpp"
 #include "HybridNitroCompassSpec.hpp"
 #include <NitroModules/Result.hpp>
 #include <exception>
 #include <functional>
 #include <memory>
+#include <optional>
 
 /**
  * Contains specialized versions of C++ templated types so they can be accessed from Swift,
@@ -51,6 +55,43 @@ namespace margelo::nitro::nitrocompass::bridge::swift {
   Func_void_CompassSample create_Func_void_CompassSample(void* NON_NULL swiftClosureWrapper) noexcept;
   inline Func_void_CompassSample_Wrapper wrap_Func_void_CompassSample(Func_void_CompassSample value) noexcept {
     return Func_void_CompassSample_Wrapper(std::move(value));
+  }
+  
+  // pragma MARK: std::optional<CompassSample>
+  /**
+   * Specialized version of `std::optional<CompassSample>`.
+   */
+  using std__optional_CompassSample_ = std::optional<CompassSample>;
+  inline std::optional<CompassSample> create_std__optional_CompassSample_(const CompassSample& value) noexcept {
+    return std::optional<CompassSample>(value);
+  }
+  inline bool has_value_std__optional_CompassSample_(const std::optional<CompassSample>& optional) noexcept {
+    return optional.has_value();
+  }
+  inline CompassSample get_std__optional_CompassSample_(const std::optional<CompassSample>& optional) noexcept {
+    return optional.value();
+  }
+  
+  // pragma MARK: std::function<void(AccuracyQuality /* quality */)>
+  /**
+   * Specialized version of `std::function<void(AccuracyQuality)>`.
+   */
+  using Func_void_AccuracyQuality = std::function<void(AccuracyQuality /* quality */)>;
+  /**
+   * Wrapper class for a `std::function<void(AccuracyQuality / * quality * /)>`, this can be used from Swift.
+   */
+  class Func_void_AccuracyQuality_Wrapper final {
+  public:
+    explicit Func_void_AccuracyQuality_Wrapper(std::function<void(AccuracyQuality /* quality */)>&& func): _function(std::make_unique<std::function<void(AccuracyQuality /* quality */)>>(std::move(func))) {}
+    inline void call(int quality) const noexcept {
+      _function->operator()(static_cast<AccuracyQuality>(quality));
+    }
+  private:
+    std::unique_ptr<std::function<void(AccuracyQuality /* quality */)>> _function;
+  } SWIFT_NONCOPYABLE;
+  Func_void_AccuracyQuality create_Func_void_AccuracyQuality(void* NON_NULL swiftClosureWrapper) noexcept;
+  inline Func_void_AccuracyQuality_Wrapper wrap_Func_void_AccuracyQuality(Func_void_AccuracyQuality value) noexcept {
+    return Func_void_AccuracyQuality_Wrapper(std::move(value));
   }
   
   // pragma MARK: std::shared_ptr<HybridNitroCompassSpec>
@@ -81,6 +122,15 @@ namespace margelo::nitro::nitrocompass::bridge::swift {
   }
   inline Result_bool_ create_Result_bool_(const std::exception_ptr& error) noexcept {
     return Result<bool>::withError(error);
+  }
+  
+  // pragma MARK: Result<std::optional<CompassSample>>
+  using Result_std__optional_CompassSample__ = Result<std::optional<CompassSample>>;
+  inline Result_std__optional_CompassSample__ create_Result_std__optional_CompassSample__(const std::optional<CompassSample>& value) noexcept {
+    return Result<std::optional<CompassSample>>::withValue(value);
+  }
+  inline Result_std__optional_CompassSample__ create_Result_std__optional_CompassSample__(const std::exception_ptr& error) noexcept {
+    return Result<std::optional<CompassSample>>::withError(error);
   }
 
 } // namespace margelo::nitro::nitrocompass::bridge::swift

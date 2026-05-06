@@ -44,6 +44,23 @@ abstract class HybridNitroCompassSpec: HybridObject() {
   @DoNotStrip
   @Keep
   abstract fun hasCompass(): Boolean
+  
+  @DoNotStrip
+  @Keep
+  abstract fun getCurrentHeading(): CompassSample?
+  
+  @DoNotStrip
+  @Keep
+  abstract fun setDeclination(degrees: Double): Unit
+  
+  abstract fun setOnCalibrationNeeded(onChange: (quality: AccuracyQuality) -> Unit): Unit
+  
+  @DoNotStrip
+  @Keep
+  private fun setOnCalibrationNeeded_cxx(onChange: Func_void_AccuracyQuality): Unit {
+    val __result = setOnCalibrationNeeded(onChange)
+    return __result
+  }
 
   // Default implementation of `HybridObject.toString()`
   override fun toString(): String {

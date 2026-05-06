@@ -34,6 +34,9 @@ class HybridNitroCompass : HybridNitroCompassSpec() {
   @Volatile private var filterDeg: Double = 1.0
   @Volatile private var lastEmittedHeading: Double = Double.NaN
   @Volatile private var lastAccuracyDeg: Double = -1.0
+  @Volatile private var lastSample: CompassSample? = null
+  @Volatile private var lastQuality: AccuracyQuality? = null
+  @Volatile private var declinationDeg: Double = 0.0
 
   private val rotationMatrix = FloatArray(16)
   private val remappedMatrix = FloatArray(16)
@@ -45,6 +48,7 @@ class HybridNitroCompass : HybridNitroCompassSpec() {
   private var activeSensor: Sensor? = null
   private var activeListener: SensorEventListener? = null
   private var onHeading: ((CompassSample) -> Unit)? = null
+  private var calibrationCb: ((AccuracyQuality) -> Unit)? = null
 
   private val context: Context
     get() = NitroModules.applicationContext
@@ -58,6 +62,8 @@ class HybridNitroCompass : HybridNitroCompassSpec() {
       this.onHeading = onHeading
       lastEmittedHeading = Double.NaN
       lastAccuracyDeg = -1.0
+      lastSample = null
+      lastQuality = null
 
       val sm = context.getSystemService(Context.SENSOR_SERVICE) as? SensorManager
         ?: throw IllegalStateException("SensorManager unavailable")
@@ -101,6 +107,16 @@ class HybridNitroCompass : HybridNitroCompassSpec() {
       sm.getDefaultSensor(Sensor.TYPE_GEOMAGNETIC_ROTATION_VECTOR) != null
   }
 
+  override fun getCurrentHeading(): CompassSample? = lastSample
+
+  override fun setDeclination(degrees: Double) {
+    declinationDeg = degrees
+  }
+
+  override fun setOnCalibrationNeeded(onChange: (quality: AccuracyQuality) -> Unit) {
+    calibrationCb = onChange
+  }
+
   private fun stopLocked() {
     epoch.incrementAndGet()
     val sm = NitroModules.applicationContext?.getSystemService(Context.SENSOR_SERVICE) as? SensorManager
@@ -111,6 +127,8 @@ class HybridNitroCompass : HybridNitroCompassSpec() {
     sensorThread?.quitSafely()
     sensorThread = null
     onHeading = null
+    lastSample = null
+    lastQuality = null
   }
 
   private fun handleSensorEvent(event: SensorEvent) {
@@ -134,7 +152,9 @@ class HybridNitroCompass : HybridNitroCompassSpec() {
     if (heading < 0.0) heading += 360.0
 
     if (event.values.size > 4 && event.values[4] >= 0f) {
-      lastAccuracyDeg = Math.toDegrees(event.values[4].toDouble())
+      val acc = Math.toDegrees(event.values[4].toDouble())
+      lastAccuracyDeg = acc
+      fireCalibration(qualityFor(acc))
     }
 
     val prev = lastEmittedHeading
@@ -142,18 +162,45 @@ class HybridNitroCompass : HybridNitroCompassSpec() {
     if (filterDeg > 0.0 && delta < filterDeg) return
     lastEmittedHeading = heading
 
-    onHeading?.invoke(CompassSample(heading, lastAccuracyDeg))
+    var emitted = heading + declinationDeg
+    emitted = ((emitted % 360.0) + 360.0) % 360.0
+    val sample = CompassSample(emitted, lastAccuracyDeg)
+    lastSample = sample
+    onHeading?.invoke(sample)
   }
 
   private fun handleAccuracyChanged(accuracy: Int) {
+    val quality = when (accuracy) {
+      SensorManager.SENSOR_STATUS_ACCURACY_HIGH -> AccuracyQuality.HIGH
+      SensorManager.SENSOR_STATUS_ACCURACY_MEDIUM -> AccuracyQuality.MEDIUM
+      SensorManager.SENSOR_STATUS_ACCURACY_LOW -> AccuracyQuality.LOW
+      else -> AccuracyQuality.UNRELIABLE
+    }
     if (lastAccuracyDeg < 0.0) {
-      lastAccuracyDeg = when (accuracy) {
-        SensorManager.SENSOR_STATUS_ACCURACY_HIGH -> 5.0
-        SensorManager.SENSOR_STATUS_ACCURACY_MEDIUM -> 15.0
-        SensorManager.SENSOR_STATUS_ACCURACY_LOW -> 30.0
-        else -> -1.0
+      lastAccuracyDeg = when (quality) {
+        AccuracyQuality.HIGH -> 5.0
+        AccuracyQuality.MEDIUM -> 15.0
+        AccuracyQuality.LOW -> 30.0
+        AccuracyQuality.UNRELIABLE -> -1.0
       }
     }
+    fireCalibration(quality)
+  }
+
+  private fun qualityFor(accuracyDeg: Double): AccuracyQuality {
+    return when {
+      accuracyDeg < 0 -> AccuracyQuality.UNRELIABLE
+      accuracyDeg < 5 -> AccuracyQuality.HIGH
+      accuracyDeg < 15 -> AccuracyQuality.MEDIUM
+      accuracyDeg < 30 -> AccuracyQuality.LOW
+      else -> AccuracyQuality.UNRELIABLE
+    }
+  }
+
+  private fun fireCalibration(quality: AccuracyQuality) {
+    if (quality == lastQuality) return
+    lastQuality = quality
+    calibrationCb?.invoke(quality)
   }
 
   private fun currentSurfaceRotation(): Int {

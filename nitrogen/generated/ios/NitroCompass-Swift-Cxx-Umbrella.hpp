@@ -8,18 +8,22 @@
 #pragma once
 
 // Forward declarations of C++ defined types
+// Forward declaration of `AccuracyQuality` to properly resolve imports.
+namespace margelo::nitro::nitrocompass { enum class AccuracyQuality; }
 // Forward declaration of `CompassSample` to properly resolve imports.
 namespace margelo::nitro::nitrocompass { struct CompassSample; }
 // Forward declaration of `HybridNitroCompassSpec` to properly resolve imports.
 namespace margelo::nitro::nitrocompass { class HybridNitroCompassSpec; }
 
 // Include C++ defined types
+#include "AccuracyQuality.hpp"
 #include "CompassSample.hpp"
 #include "HybridNitroCompassSpec.hpp"
 #include <NitroModules/Result.hpp>
 #include <exception>
 #include <functional>
 #include <memory>
+#include <optional>
 
 // C++ helpers for Swift
 #include "NitroCompass-Swift-Cxx-Bridge.hpp"

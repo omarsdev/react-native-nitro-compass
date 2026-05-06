@@ -162,4 +162,49 @@ open class HybridNitroCompassSpec_cxx {
       return bridge.create_Result_bool_(__exceptionPtr)
     }
   }
+  
+  @inline(__always)
+  public final func getCurrentHeading() -> bridge.Result_std__optional_CompassSample__ {
+    do {
+      let __result = try self.__implementation.getCurrentHeading()
+      let __resultCpp = { () -> bridge.std__optional_CompassSample_ in
+        if let __unwrappedValue = __result {
+          return bridge.create_std__optional_CompassSample_(__unwrappedValue)
+        } else {
+          return .init()
+        }
+      }()
+      return bridge.create_Result_std__optional_CompassSample__(__resultCpp)
+    } catch (let __error) {
+      let __exceptionPtr = __error.toCpp()
+      return bridge.create_Result_std__optional_CompassSample__(__exceptionPtr)
+    }
+  }
+  
+  @inline(__always)
+  public final func setDeclination(degrees: Double) -> bridge.Result_void_ {
+    do {
+      try self.__implementation.setDeclination(degrees: degrees)
+      return bridge.create_Result_void_()
+    } catch (let __error) {
+      let __exceptionPtr = __error.toCpp()
+      return bridge.create_Result_void_(__exceptionPtr)
+    }
+  }
+  
+  @inline(__always)
+  public final func setOnCalibrationNeeded(onChange: bridge.Func_void_AccuracyQuality) -> bridge.Result_void_ {
+    do {
+      try self.__implementation.setOnCalibrationNeeded(onChange: { () -> (AccuracyQuality) -> Void in
+        let __wrappedFunction = bridge.wrap_Func_void_AccuracyQuality(onChange)
+        return { (__quality: AccuracyQuality) -> Void in
+          __wrappedFunction.call(__quality.rawValue)
+        }
+      }())
+      return bridge.create_Result_void_()
+    } catch (let __error) {
+      let __exceptionPtr = __error.toCpp()
+      return bridge.create_Result_void_(__exceptionPtr)
+    }
+  }
 }

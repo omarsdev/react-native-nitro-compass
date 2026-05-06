@@ -15,9 +15,13 @@
 
 // Forward declaration of `CompassSample` to properly resolve imports.
 namespace margelo::nitro::nitrocompass { struct CompassSample; }
+// Forward declaration of `AccuracyQuality` to properly resolve imports.
+namespace margelo::nitro::nitrocompass { enum class AccuracyQuality; }
 
 #include "CompassSample.hpp"
 #include <functional>
+#include <optional>
+#include "AccuracyQuality.hpp"
 
 namespace margelo::nitro::nitrocompass {
 
@@ -53,6 +57,9 @@ namespace margelo::nitro::nitrocompass {
       virtual void start(double filterDegrees, const std::function<void(const CompassSample& /* sample */)>& onHeading) = 0;
       virtual void stop() = 0;
       virtual bool hasCompass() = 0;
+      virtual std::optional<CompassSample> getCurrentHeading() = 0;
+      virtual void setDeclination(double degrees) = 0;
+      virtual void setOnCalibrationNeeded(const std::function<void(AccuracyQuality /* quality */)>& onChange) = 0;
 
     protected:
       // Hybrid Setup
