@@ -15,6 +15,7 @@
     "clean": "git clean -dfX",
     "release": "semantic-release",
     "build": "npm run typecheck && bob build",
+    "prepare": "bob build",
     "codegen": "nitrogen --logLevel=\"debug\" && npm run build"
   },
   "keywords": [

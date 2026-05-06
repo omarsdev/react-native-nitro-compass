@@ -13,7 +13,10 @@ import NitroModules
 import UIKit
 
 class HybridNitroCompass: HybridNitroCompassSpec {
-  private let manager = CLLocationManager()
+  // CLLocationManager must be created on a thread with an active run loop
+  // (typically main). Nitro can instantiate HybridObjects off-main, so we
+  // hop to main for construction and configuration.
+  private var manager: CLLocationManager!
   private var delegateProxy: HeadingDelegate?
   private var onSample: ((CompassSample) -> Void)?
   private var orientationObserver: NSObjectProtocol?
@@ -27,11 +30,24 @@ class HybridNitroCompass: HybridNitroCompassSpec {
   private var started: Bool = false
   private var isSubscribed: Bool = false
   private var activeFilterDegrees: Double = 1
+  // Mirrors UIApplication.applicationState. Updated from background/foreground
+  // notification observers (delivered on main) so JS-thread callers don't
+  // have to hop to main to read it.
+  private var appIsBackgrounded: Bool = false
 
   override init() {
     super.init()
-    manager.headingFilter = 1
-    manager.desiredAccuracy = kCLLocationAccuracyNearestTenMeters
+    let setup = {
+      let m = CLLocationManager()
+      m.headingFilter = 1
+      m.desiredAccuracy = kCLLocationAccuracyNearestTenMeters
+      self.manager = m
+    }
+    if Thread.isMainThread {
+      setup()
+    } else {
+      DispatchQueue.main.sync(execute: setup)
+    }
   }
 
   deinit {
@@ -90,6 +106,7 @@ class HybridNitroCompass: HybridNitroCompassSpec {
 
     DispatchQueue.main.async { [weak self] in
       UIDevice.current.beginGeneratingDeviceOrientationNotifications()
+      self?.appIsBackgrounded = UIApplication.shared.applicationState == .background
       self?.applyHeadingOrientation()
     }
 
@@ -134,7 +151,7 @@ class HybridNitroCompass: HybridNitroCompassSpec {
 
   func setPauseOnBackground(enabled: Bool) throws {
     pauseOnBackground = enabled
-    if enabled, started, isSubscribed, isAppBackgrounded() {
+    if enabled, started, isSubscribed, appIsBackgrounded {
       unsubscribe()
     } else if !enabled, started, !isSubscribed {
       subscribe()
@@ -157,20 +174,17 @@ class HybridNitroCompass: HybridNitroCompassSpec {
   }
 
   private func handleBackground() {
+    appIsBackgrounded = true
     if pauseOnBackground, started, isSubscribed {
       unsubscribe()
     }
   }
 
   private func handleForeground() {
+    appIsBackgrounded = false
     if pauseOnBackground, started, !isSubscribed {
       subscribe()
     }
-  }
-
-  private func isAppBackgrounded() -> Bool {
-    let state = UIApplication.shared.applicationState
-    return state == .background
   }
 
   private func stopInternal() {
