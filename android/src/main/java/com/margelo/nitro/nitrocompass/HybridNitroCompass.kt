@@ -11,6 +11,8 @@ import android.hardware.display.DisplayManager
 import android.os.Bundle
 import android.os.Handler
 import android.os.HandlerThread
+import android.os.Looper
+import android.os.SystemClock
 import android.view.Display
 import android.view.Surface
 import androidx.annotation.Keep
@@ -34,6 +36,16 @@ import kotlin.math.abs
 @Keep
 class HybridNitroCompass : HybridNitroCompassSpec() {
 
+  companion object {
+    // Some Android sensor stacks (notably certain Samsung/Huawei builds)
+    // can silently stall after a screen off / sensor pressure event.
+    // The rotation-vector sensor at SENSOR_DELAY_GAME nominally fires
+    // every ~20ms; if no event has arrived in 1.5s we assume the stack
+    // froze and force a re-registration.
+    private const val WATCHDOG_PERIOD_MS = 1_500L
+    private const val STALE_THRESHOLD_NS = 1_500_000_000L
+  }
+
   @Volatile private var filterDeg: Double = 1.0
   @Volatile private var lastEmittedHeading: Double = Double.NaN
   @Volatile private var lastAccuracyDeg: Double = -1.0
@@ -44,6 +56,7 @@ class HybridNitroCompass : HybridNitroCompassSpec() {
   @Volatile private var started: Boolean = false
   @Volatile private var isSubscribed: Boolean = false
   @Volatile private var activeFilterDegrees: Double = 1.0
+  @Volatile private var lastEventNs: Long = 0L
 
   private val rotationMatrix = FloatArray(16)
   private val remappedMatrix = FloatArray(16)
@@ -58,6 +71,30 @@ class HybridNitroCompass : HybridNitroCompassSpec() {
   private var lifecycleCallbacks: Application.ActivityLifecycleCallbacks? = null
   private var onHeading: ((CompassSample) -> Unit)? = null
   private var calibrationCb: ((AccuracyQuality) -> Unit)? = null
+
+  private val watchdogHandler = Handler(Looper.getMainLooper())
+  private val watchdogRunnable = object : Runnable {
+    override fun run() {
+      val last = lastEventNs
+      val now = SystemClock.elapsedRealtimeNanos()
+      if (last > 0L && now - last > STALE_THRESHOLD_NS) {
+        synchronized(this@HybridNitroCompass) {
+          if (started && isSubscribed) {
+            unsubscribeLocked()
+            subscribeLocked()
+            // subscribeLocked() re-arms the watchdog itself, so don't
+            // double-post below. Reset the timestamp to give the fresh
+            // subscription a full window before being judged stale.
+            lastEventNs = SystemClock.elapsedRealtimeNanos()
+          }
+        }
+        return
+      }
+      if (started && isSubscribed) {
+        watchdogHandler.postDelayed(this, WATCHDOG_PERIOD_MS)
+      }
+    }
+  }
 
   private val context: Context
     get() = NitroModules.applicationContext
@@ -171,9 +208,14 @@ class HybridNitroCompass : HybridNitroCompassSpec() {
     activeSensor = sensor
     activeListener = listener
     isSubscribed = true
+
+    lastEventNs = 0L
+    watchdogHandler.removeCallbacks(watchdogRunnable)
+    watchdogHandler.postDelayed(watchdogRunnable, WATCHDOG_PERIOD_MS)
   }
 
   private fun unsubscribeLocked() {
+    watchdogHandler.removeCallbacks(watchdogRunnable)
     if (!isSubscribed) {
       sensorThread?.quitSafely()
       sensorThread = null
@@ -243,6 +285,8 @@ class HybridNitroCompass : HybridNitroCompassSpec() {
     if (type != Sensor.TYPE_ROTATION_VECTOR &&
       type != Sensor.TYPE_GEOMAGNETIC_ROTATION_VECTOR
     ) return
+
+    lastEventNs = SystemClock.elapsedRealtimeNanos()
 
     SensorManager.getRotationMatrixFromVector(rotationMatrix, event.values)
 
