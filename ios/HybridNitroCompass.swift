@@ -16,6 +16,7 @@ class HybridNitroCompass: HybridNitroCompassSpec {
   private let manager = CLLocationManager()
   private var delegateProxy: HeadingDelegate?
   private var onSample: ((CompassSample) -> Void)?
+  private var orientationObserver: NSObjectProtocol?
 
   override init() {
     super.init()
@@ -35,21 +36,26 @@ class HybridNitroCompass: HybridNitroCompassSpec {
     stopInternal()
 
     onSample = onHeading
-    manager.headingFilter = max(filterDegrees, 0.1)
+    manager.headingFilter = filterDegrees == 0 ? kCLHeadingFilterNone : filterDegrees
 
     let proxy = HeadingDelegate { [weak self] sample in
       self?.onSample?(sample)
     }
-    proxy.managerRef = manager
     delegateProxy = proxy
     manager.delegate = proxy
 
-    NotificationCenter.default.addObserver(
-      proxy,
-      selector: #selector(HeadingDelegate.onOrientationChange),
-      name: UIDevice.orientationDidChangeNotification,
-      object: nil
-    )
+    orientationObserver = NotificationCenter.default.addObserver(
+      forName: UIDevice.orientationDidChangeNotification,
+      object: nil,
+      queue: .main
+    ) { [weak self] _ in
+      self?.applyHeadingOrientation()
+    }
+
+    DispatchQueue.main.async { [weak self] in
+      UIDevice.current.beginGeneratingDeviceOrientationNotifications()
+      self?.applyHeadingOrientation()
+    }
 
     manager.startUpdatingHeading()
   }
@@ -66,12 +72,36 @@ class HybridNitroCompass: HybridNitroCompassSpec {
 
   private func stopInternal() {
     manager.stopUpdatingHeading()
-    if let proxy = delegateProxy {
-      NotificationCenter.default.removeObserver(proxy)
+    if delegateProxy != nil {
       manager.delegate = nil
       delegateProxy = nil
     }
+    if let observer = orientationObserver {
+      NotificationCenter.default.removeObserver(observer)
+      orientationObserver = nil
+      DispatchQueue.main.async {
+        UIDevice.current.endGeneratingDeviceOrientationNotifications()
+      }
+    }
     onSample = nil
+  }
+
+  private func applyHeadingOrientation() {
+    let scene = UIApplication.shared.connectedScenes
+      .compactMap { $0 as? UIWindowScene }
+      .first
+    let clOrientation: CLDeviceOrientation
+    switch scene?.interfaceOrientation {
+    case .landscapeLeft:
+      clOrientation = .landscapeRight
+    case .landscapeRight:
+      clOrientation = .landscapeLeft
+    case .portraitUpsideDown:
+      clOrientation = .portraitUpsideDown
+    default:
+      clOrientation = .portrait
+    }
+    manager.headingOrientation = clOrientation
   }
 }
 
@@ -79,7 +109,6 @@ class HybridNitroCompass: HybridNitroCompassSpec {
 /// HybridObject stay a pure Swift class.
 private class HeadingDelegate: NSObject, CLLocationManagerDelegate {
   private let onSample: (CompassSample) -> Void
-  weak var managerRef: CLLocationManager?
 
   init(_ onSample: @escaping (CompassSample) -> Void) {
     self.onSample = onSample
@@ -87,33 +116,6 @@ private class HeadingDelegate: NSObject, CLLocationManagerDelegate {
 
   func locationManager(_ manager: CLLocationManager, didUpdateHeading newHeading: CLHeading) {
     guard newHeading.headingAccuracy >= 0 else { return }
-    let adjusted = HeadingDelegate.adjustForOrientation(newHeading.magneticHeading)
-    onSample(CompassSample(heading: adjusted, accuracy: newHeading.headingAccuracy))
-  }
-
-  @objc func onOrientationChange() {
-    guard
-      let manager = managerRef,
-      let heading = manager.heading,
-      heading.headingAccuracy >= 0
-    else { return }
-    let adjusted = HeadingDelegate.adjustForOrientation(heading.magneticHeading)
-    onSample(CompassSample(heading: adjusted, accuracy: heading.headingAccuracy))
-  }
-
-  private static func adjustForOrientation(_ heading: Double) -> Double {
-    let orientation = UIApplication.shared.connectedScenes
-      .compactMap { $0 as? UIWindowScene }
-      .first?.interfaceOrientation
-    switch orientation {
-    case .portraitUpsideDown:
-      return fmod(heading + 180, 360)
-    case .landscapeLeft:
-      return fmod(heading - 90 + 360, 360)
-    case .landscapeRight:
-      return fmod(heading + 90, 360)
-    default:
-      return heading
-    }
+    onSample(CompassSample(heading: newHeading.magneticHeading, accuracy: newHeading.headingAccuracy))
   }
 }

@@ -13,6 +13,7 @@ import android.view.WindowManager
 import androidx.annotation.Keep
 import com.facebook.proguard.annotations.DoNotStrip
 import com.margelo.nitro.NitroModules
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.math.abs
 
 /**
@@ -28,7 +29,7 @@ import kotlin.math.abs
  */
 @DoNotStrip
 @Keep
-class HybridNitroCompass : HybridNitroCompassSpec(), SensorEventListener {
+class HybridNitroCompass : HybridNitroCompassSpec() {
 
   @Volatile private var filterDeg: Double = 1.0
   @Volatile private var lastEmittedHeading: Double = Double.NaN
@@ -38,9 +39,11 @@ class HybridNitroCompass : HybridNitroCompassSpec(), SensorEventListener {
   private val remappedMatrix = FloatArray(16)
   private val orientation = FloatArray(3)
 
+  private val epoch = AtomicInteger(0)
   private var sensorThread: HandlerThread? = null
   private var sensorHandler: Handler? = null
   private var activeSensor: Sensor? = null
+  private var activeListener: SensorEventListener? = null
   private var onHeading: ((CompassSample) -> Unit)? = null
 
   private val context: Context
@@ -48,36 +51,47 @@ class HybridNitroCompass : HybridNitroCompassSpec(), SensorEventListener {
       ?: throw IllegalStateException("NitroModules.applicationContext is null — was Nitro installed?")
 
   override fun start(filterDegrees: Double, onHeading: (sample: CompassSample) -> Unit) {
-    stop()
-    filterDeg = filterDegrees.coerceAtLeast(0.0)
-    this.onHeading = onHeading
+    synchronized(this) {
+      stopLocked()
+      val myEpoch = epoch.incrementAndGet()
+      filterDeg = filterDegrees.coerceAtLeast(0.0)
+      this.onHeading = onHeading
+      lastEmittedHeading = Double.NaN
+      lastAccuracyDeg = -1.0
 
-    val sm = context.getSystemService(Context.SENSOR_SERVICE) as? SensorManager
-      ?: throw IllegalStateException("SensorManager unavailable")
+      val sm = context.getSystemService(Context.SENSOR_SERVICE) as? SensorManager
+        ?: throw IllegalStateException("SensorManager unavailable")
 
-    val sensor = sm.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)
-      ?: sm.getDefaultSensor(Sensor.TYPE_GEOMAGNETIC_ROTATION_VECTOR)
-      ?: throw IllegalStateException("No rotation sensor on this device")
+      val sensor = sm.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)
+        ?: sm.getDefaultSensor(Sensor.TYPE_GEOMAGNETIC_ROTATION_VECTOR)
+        ?: throw IllegalStateException("No rotation sensor on this device")
 
-    val thread = HandlerThread("NitroCompass-Sensor").also { it.start() }
-    val handler = Handler(thread.looper)
-    sm.registerListener(this, sensor, SensorManager.SENSOR_DELAY_GAME, handler)
+      val thread = HandlerThread("NitroCompass-Sensor").also { it.start() }
+      val handler = Handler(thread.looper)
+      val listener = object : SensorEventListener {
+        override fun onSensorChanged(event: SensorEvent) {
+          if (myEpoch != epoch.get()) return
+          handleSensorEvent(event)
+        }
 
-    sensorThread = thread
-    sensorHandler = handler
-    activeSensor = sensor
-    lastEmittedHeading = Double.NaN
-    lastAccuracyDeg = -1.0
+        override fun onAccuracyChanged(sensor: Sensor, accuracy: Int) {
+          if (myEpoch != epoch.get()) return
+          handleAccuracyChanged(accuracy)
+        }
+      }
+      sm.registerListener(listener, sensor, SensorManager.SENSOR_DELAY_GAME, handler)
+
+      sensorThread = thread
+      sensorHandler = handler
+      activeSensor = sensor
+      activeListener = listener
+    }
   }
 
   override fun stop() {
-    val sm = NitroModules.applicationContext?.getSystemService(Context.SENSOR_SERVICE) as? SensorManager
-    sm?.unregisterListener(this)
-    activeSensor = null
-    sensorHandler = null
-    sensorThread?.quitSafely()
-    sensorThread = null
-    onHeading = null
+    synchronized(this) {
+      stopLocked()
+    }
   }
 
   override fun hasCompass(): Boolean {
@@ -87,7 +101,19 @@ class HybridNitroCompass : HybridNitroCompassSpec(), SensorEventListener {
       sm.getDefaultSensor(Sensor.TYPE_GEOMAGNETIC_ROTATION_VECTOR) != null
   }
 
-  override fun onSensorChanged(event: SensorEvent) {
+  private fun stopLocked() {
+    epoch.incrementAndGet()
+    val sm = NitroModules.applicationContext?.getSystemService(Context.SENSOR_SERVICE) as? SensorManager
+    activeListener?.let { sm?.unregisterListener(it) }
+    activeListener = null
+    activeSensor = null
+    sensorHandler = null
+    sensorThread?.quitSafely()
+    sensorThread = null
+    onHeading = null
+  }
+
+  private fun handleSensorEvent(event: SensorEvent) {
     val type = event.sensor.type
     if (type != Sensor.TYPE_ROTATION_VECTOR &&
       type != Sensor.TYPE_GEOMAGNETIC_ROTATION_VECTOR
@@ -113,13 +139,13 @@ class HybridNitroCompass : HybridNitroCompassSpec(), SensorEventListener {
 
     val prev = lastEmittedHeading
     val delta = if (prev.isNaN()) Double.MAX_VALUE else shortestArc(prev, heading)
-    if (delta < filterDeg) return
+    if (filterDeg > 0.0 && delta < filterDeg) return
     lastEmittedHeading = heading
 
     onHeading?.invoke(CompassSample(heading, lastAccuracyDeg))
   }
 
-  override fun onAccuracyChanged(sensor: Sensor, accuracy: Int) {
+  private fun handleAccuracyChanged(accuracy: Int) {
     if (lastAccuracyDeg < 0.0) {
       lastAccuracyDeg = when (accuracy) {
         SensorManager.SENSOR_STATUS_ACCURACY_HIGH -> 5.0
