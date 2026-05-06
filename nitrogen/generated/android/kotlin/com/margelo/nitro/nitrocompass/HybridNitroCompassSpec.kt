@@ -61,6 +61,10 @@ abstract class HybridNitroCompassSpec: HybridObject() {
     val __result = setOnCalibrationNeeded(onChange)
     return __result
   }
+  
+  @DoNotStrip
+  @Keep
+  abstract fun setPauseOnBackground(enabled: Boolean): Unit
 
   // Default implementation of `HybridObject.toString()`
   override fun toString(): String {

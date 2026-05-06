@@ -81,5 +81,9 @@ namespace margelo::nitro::nitrocompass {
     static const auto method = _javaPart->javaClassStatic()->getMethod<void(jni::alias_ref<JFunc_void_AccuracyQuality::javaobject> /* onChange */)>("setOnCalibrationNeeded_cxx");
     method(_javaPart, JFunc_void_AccuracyQuality_cxx::fromCpp(onChange));
   }
+  void JHybridNitroCompassSpec::setPauseOnBackground(bool enabled) {
+    static const auto method = _javaPart->javaClassStatic()->getMethod<void(jboolean /* enabled */)>("setPauseOnBackground");
+    method(_javaPart, enabled);
+  }
 
 } // namespace margelo::nitro::nitrocompass

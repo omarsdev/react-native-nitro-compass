@@ -17,15 +17,25 @@ class HybridNitroCompass: HybridNitroCompassSpec {
   private var delegateProxy: HeadingDelegate?
   private var onSample: ((CompassSample) -> Void)?
   private var orientationObserver: NSObjectProtocol?
+  private var backgroundObserver: NSObjectProtocol?
+  private var foregroundObserver: NSObjectProtocol?
   private var declinationDeg: Double = 0
   private var lastSample: CompassSample?
   private var lastQuality: AccuracyQuality?
   private var calibrationCb: ((AccuracyQuality) -> Void)?
+  private var pauseOnBackground: Bool = true
+  private var isStarted: Bool = false
+  private var isSubscribed: Bool = false
+  private var activeFilterDegrees: Double = 1
 
   override init() {
     super.init()
     manager.headingFilter = 1
     manager.desiredAccuracy = kCLLocationAccuracyNearestTenMeters
+  }
+
+  deinit {
+    stopInternal()
   }
 
   func start(filterDegrees: Double, onHeading: @escaping (_ sample: CompassSample) -> Void) throws {
@@ -40,7 +50,8 @@ class HybridNitroCompass: HybridNitroCompassSpec {
     stopInternal()
 
     onSample = onHeading
-    manager.headingFilter = filterDegrees == 0 ? kCLHeadingFilterNone : filterDegrees
+    activeFilterDegrees = filterDegrees
+    isStarted = true
 
     let proxy = HeadingDelegate(
       onSample: { [weak self] heading, accuracy in
@@ -61,12 +72,28 @@ class HybridNitroCompass: HybridNitroCompassSpec {
       self?.applyHeadingOrientation()
     }
 
+    backgroundObserver = NotificationCenter.default.addObserver(
+      forName: UIApplication.didEnterBackgroundNotification,
+      object: nil,
+      queue: .main
+    ) { [weak self] _ in
+      self?.handleBackground()
+    }
+
+    foregroundObserver = NotificationCenter.default.addObserver(
+      forName: UIApplication.willEnterForegroundNotification,
+      object: nil,
+      queue: .main
+    ) { [weak self] _ in
+      self?.handleForeground()
+    }
+
     DispatchQueue.main.async { [weak self] in
       UIDevice.current.beginGeneratingDeviceOrientationNotifications()
       self?.applyHeadingOrientation()
     }
 
-    manager.startUpdatingHeading()
+    subscribe()
   }
 
   func stop() throws {
@@ -89,10 +116,50 @@ class HybridNitroCompass: HybridNitroCompassSpec {
     calibrationCb = onChange
   }
 
+  func setPauseOnBackground(enabled: Bool) throws {
+    pauseOnBackground = enabled
+    if enabled, isStarted, isSubscribed, isAppBackgrounded() {
+      unsubscribe()
+    } else if !enabled, isStarted, !isSubscribed {
+      subscribe()
+    }
+  }
+
   // MARK: - Helpers
 
-  private func stopInternal() {
+  private func subscribe() {
+    guard !isSubscribed else { return }
+    manager.headingFilter = activeFilterDegrees == 0 ? kCLHeadingFilterNone : activeFilterDegrees
+    manager.startUpdatingHeading()
+    isSubscribed = true
+  }
+
+  private func unsubscribe() {
+    guard isSubscribed else { return }
     manager.stopUpdatingHeading()
+    isSubscribed = false
+  }
+
+  private func handleBackground() {
+    if pauseOnBackground, isStarted, isSubscribed {
+      unsubscribe()
+    }
+  }
+
+  private func handleForeground() {
+    if pauseOnBackground, isStarted, !isSubscribed {
+      subscribe()
+    }
+  }
+
+  private func isAppBackgrounded() -> Bool {
+    let state = UIApplication.shared.applicationState
+    return state == .background
+  }
+
+  private func stopInternal() {
+    isStarted = false
+    unsubscribe()
     if delegateProxy != nil {
       manager.delegate = nil
       delegateProxy = nil
@@ -103,6 +170,14 @@ class HybridNitroCompass: HybridNitroCompassSpec {
       DispatchQueue.main.async {
         UIDevice.current.endGeneratingDeviceOrientationNotifications()
       }
+    }
+    if let observer = backgroundObserver {
+      NotificationCenter.default.removeObserver(observer)
+      backgroundObserver = nil
+    }
+    if let observer = foregroundObserver {
+      NotificationCenter.default.removeObserver(observer)
+      foregroundObserver = nil
     }
     onSample = nil
     lastSample = nil

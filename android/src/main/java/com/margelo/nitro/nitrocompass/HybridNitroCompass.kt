@@ -1,15 +1,18 @@
 package com.margelo.nitro.nitrocompass
 
+import android.app.Activity
+import android.app.Application
 import android.content.Context
 import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
-import android.os.Build
+import android.hardware.display.DisplayManager
+import android.os.Bundle
 import android.os.Handler
 import android.os.HandlerThread
+import android.view.Display
 import android.view.Surface
-import android.view.WindowManager
 import androidx.annotation.Keep
 import com.facebook.proguard.annotations.DoNotStrip
 import com.margelo.nitro.NitroModules
@@ -37,16 +40,22 @@ class HybridNitroCompass : HybridNitroCompassSpec() {
   @Volatile private var lastSample: CompassSample? = null
   @Volatile private var lastQuality: AccuracyQuality? = null
   @Volatile private var declinationDeg: Double = 0.0
+  @Volatile private var pauseOnBackground: Boolean = true
+  @Volatile private var isStarted: Boolean = false
+  @Volatile private var isSubscribed: Boolean = false
+  @Volatile private var activeFilterDegrees: Double = 1.0
 
   private val rotationMatrix = FloatArray(16)
   private val remappedMatrix = FloatArray(16)
   private val orientation = FloatArray(3)
 
   private val epoch = AtomicInteger(0)
+  private val activityCounter = AtomicInteger(0)
   private var sensorThread: HandlerThread? = null
   private var sensorHandler: Handler? = null
   private var activeSensor: Sensor? = null
   private var activeListener: SensorEventListener? = null
+  private var lifecycleCallbacks: Application.ActivityLifecycleCallbacks? = null
   private var onHeading: ((CompassSample) -> Unit)? = null
   private var calibrationCb: ((AccuracyQuality) -> Unit)? = null
 
@@ -57,7 +66,8 @@ class HybridNitroCompass : HybridNitroCompassSpec() {
   override fun start(filterDegrees: Double, onHeading: (sample: CompassSample) -> Unit) {
     synchronized(this) {
       stopLocked()
-      val myEpoch = epoch.incrementAndGet()
+      isStarted = true
+      activeFilterDegrees = filterDegrees
       filterDeg = filterDegrees.coerceAtLeast(0.0)
       this.onHeading = onHeading
       lastEmittedHeading = Double.NaN
@@ -65,32 +75,8 @@ class HybridNitroCompass : HybridNitroCompassSpec() {
       lastSample = null
       lastQuality = null
 
-      val sm = context.getSystemService(Context.SENSOR_SERVICE) as? SensorManager
-        ?: throw IllegalStateException("SensorManager unavailable")
-
-      val sensor = sm.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)
-        ?: sm.getDefaultSensor(Sensor.TYPE_GEOMAGNETIC_ROTATION_VECTOR)
-        ?: throw IllegalStateException("No rotation sensor on this device")
-
-      val thread = HandlerThread("NitroCompass-Sensor").also { it.start() }
-      val handler = Handler(thread.looper)
-      val listener = object : SensorEventListener {
-        override fun onSensorChanged(event: SensorEvent) {
-          if (myEpoch != epoch.get()) return
-          handleSensorEvent(event)
-        }
-
-        override fun onAccuracyChanged(sensor: Sensor, accuracy: Int) {
-          if (myEpoch != epoch.get()) return
-          handleAccuracyChanged(accuracy)
-        }
-      }
-      sm.registerListener(listener, sensor, SensorManager.SENSOR_DELAY_GAME, handler)
-
-      sensorThread = thread
-      sensorHandler = handler
-      activeSensor = sensor
-      activeListener = listener
+      registerLifecycleCallbacks()
+      subscribeLocked()
     }
   }
 
@@ -117,7 +103,66 @@ class HybridNitroCompass : HybridNitroCompassSpec() {
     calibrationCb = onChange
   }
 
+  override fun setPauseOnBackground(enabled: Boolean) {
+    synchronized(this) {
+      pauseOnBackground = enabled
+      if (enabled && isStarted && isSubscribed && activityCounter.get() == 0) {
+        unsubscribeLocked()
+      } else if (!enabled && isStarted && !isSubscribed) {
+        subscribeLocked()
+      }
+    }
+  }
+
   private fun stopLocked() {
+    isStarted = false
+    unsubscribeLocked()
+    unregisterLifecycleCallbacks()
+    onHeading = null
+    lastSample = null
+    lastQuality = null
+  }
+
+  private fun subscribeLocked() {
+    if (isSubscribed) return
+    val sm = context.getSystemService(Context.SENSOR_SERVICE) as? SensorManager
+      ?: throw IllegalStateException("SensorManager unavailable")
+    val sensor = sm.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)
+      ?: sm.getDefaultSensor(Sensor.TYPE_GEOMAGNETIC_ROTATION_VECTOR)
+      ?: throw IllegalStateException("No rotation sensor on this device")
+
+    val myEpoch = epoch.incrementAndGet()
+    val thread = HandlerThread("NitroCompass-Sensor").also { it.start() }
+    val handler = Handler(thread.looper)
+    val listener = object : SensorEventListener {
+      override fun onSensorChanged(event: SensorEvent) {
+        if (myEpoch != epoch.get()) return
+        handleSensorEvent(event)
+      }
+
+      override fun onAccuracyChanged(sensor: Sensor, accuracy: Int) {
+        if (myEpoch != epoch.get()) return
+        handleAccuracyChanged(accuracy)
+      }
+    }
+    sm.registerListener(listener, sensor, SensorManager.SENSOR_DELAY_GAME, handler)
+
+    sensorThread = thread
+    sensorHandler = handler
+    activeSensor = sensor
+    activeListener = listener
+    isSubscribed = true
+  }
+
+  private fun unsubscribeLocked() {
+    if (!isSubscribed) {
+      sensorThread?.quitSafely()
+      sensorThread = null
+      sensorHandler = null
+      activeSensor = null
+      activeListener = null
+      return
+    }
     epoch.incrementAndGet()
     val sm = NitroModules.applicationContext?.getSystemService(Context.SENSOR_SERVICE) as? SensorManager
     activeListener?.let { sm?.unregisterListener(it) }
@@ -126,9 +171,52 @@ class HybridNitroCompass : HybridNitroCompassSpec() {
     sensorHandler = null
     sensorThread?.quitSafely()
     sensorThread = null
-    onHeading = null
-    lastSample = null
-    lastQuality = null
+    isSubscribed = false
+  }
+
+  private fun registerLifecycleCallbacks() {
+    if (lifecycleCallbacks != null) return
+    val app = NitroModules.applicationContext?.applicationContext as? Application ?: return
+    activityCounter.set(1)
+    val cb = object : Application.ActivityLifecycleCallbacks {
+      override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) {}
+      override fun onActivityStarted(activity: Activity) {
+        if (activityCounter.getAndIncrement() == 0) handleForeground()
+      }
+      override fun onActivityResumed(activity: Activity) {}
+      override fun onActivityPaused(activity: Activity) {}
+      override fun onActivityStopped(activity: Activity) {
+        if (activityCounter.decrementAndGet() == 0) handleBackground()
+      }
+      override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) {}
+      override fun onActivityDestroyed(activity: Activity) {}
+    }
+    app.registerActivityLifecycleCallbacks(cb)
+    lifecycleCallbacks = cb
+  }
+
+  private fun unregisterLifecycleCallbacks() {
+    val cb = lifecycleCallbacks ?: return
+    val app = NitroModules.applicationContext?.applicationContext as? Application
+    app?.unregisterActivityLifecycleCallbacks(cb)
+    lifecycleCallbacks = null
+    activityCounter.set(0)
+  }
+
+  private fun handleBackground() {
+    synchronized(this) {
+      if (pauseOnBackground && isStarted && isSubscribed) {
+        unsubscribeLocked()
+      }
+    }
+  }
+
+  private fun handleForeground() {
+    synchronized(this) {
+      if (pauseOnBackground && isStarted && !isSubscribed) {
+        subscribeLocked()
+      }
+    }
   }
 
   private fun handleSensorEvent(event: SensorEvent) {
@@ -204,15 +292,10 @@ class HybridNitroCompass : HybridNitroCompassSpec() {
   }
 
   private fun currentSurfaceRotation(): Int {
-    val ctx = NitroModules.applicationContext
-    val activity = ctx?.currentActivity
-    return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-      activity?.display?.rotation ?: Surface.ROTATION_0
-    } else {
-      @Suppress("DEPRECATION")
-      (ctx?.getSystemService(Context.WINDOW_SERVICE) as? WindowManager)
-        ?.defaultDisplay?.rotation ?: Surface.ROTATION_0
-    }
+    val ctx = NitroModules.applicationContext ?: return Surface.ROTATION_0
+    val dm = ctx.getSystemService(Context.DISPLAY_SERVICE) as? DisplayManager
+      ?: return Surface.ROTATION_0
+    return dm.getDisplay(Display.DEFAULT_DISPLAY)?.rotation ?: Surface.ROTATION_0
   }
 
   private fun shortestArc(from: Double, to: Double): Double {

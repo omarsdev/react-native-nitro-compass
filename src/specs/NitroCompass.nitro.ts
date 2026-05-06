@@ -87,4 +87,14 @@ export interface NitroCompass extends HybridObject<{ ios: 'swift'; android: 'kot
    * The callback is invoked on the JS thread.
    */
   setOnCalibrationNeeded(onChange: (quality: AccuracyQuality) => void): void
+
+  /**
+   * Toggle automatic pause/resume on app background/foreground. Default
+   * `true`. When enabled, the underlying sensor / location-manager
+   * subscription is silently paused while the app is backgrounded and
+   * resumed when it returns to the foreground; the JS callback and
+   * declination are preserved across the pause. Call before or after
+   * `start()`; takes effect immediately.
+   */
+  setPauseOnBackground(enabled: boolean): void
 }

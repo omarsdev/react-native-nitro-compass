@@ -20,6 +20,7 @@ namespace margelo::nitro::nitrocompass {
       prototype.registerHybridMethod("getCurrentHeading", &HybridNitroCompassSpec::getCurrentHeading);
       prototype.registerHybridMethod("setDeclination", &HybridNitroCompassSpec::setDeclination);
       prototype.registerHybridMethod("setOnCalibrationNeeded", &HybridNitroCompassSpec::setOnCalibrationNeeded);
+      prototype.registerHybridMethod("setPauseOnBackground", &HybridNitroCompassSpec::setPauseOnBackground);
     });
   }
 

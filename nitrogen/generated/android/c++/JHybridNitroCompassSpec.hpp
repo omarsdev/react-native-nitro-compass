@@ -60,6 +60,7 @@ namespace margelo::nitro::nitrocompass {
     std::optional<CompassSample> getCurrentHeading() override;
     void setDeclination(double degrees) override;
     void setOnCalibrationNeeded(const std::function<void(AccuracyQuality /* quality */)>& onChange) override;
+    void setPauseOnBackground(bool enabled) override;
 
   private:
     jni::global_ref<JHybridNitroCompassSpec::JavaPart> _javaPart;
