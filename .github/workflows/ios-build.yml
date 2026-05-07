@@ -60,6 +60,10 @@ jobs:
       - name: Install dependencies (bun)
         run: bun install
 
+      - name: Install example dependencies (yarn)
+        working-directory: example
+        run: yarn install --frozen-lockfile
+
       - name: Setup Ruby (bundle)
         uses: ruby/setup-ruby@v1
         with:
