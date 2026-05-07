@@ -1,3 +1,9 @@
+## [1.2.3](https://github.com/omarsdev/react-native-nitro-compass/compare/v1.2.2...v1.2.3) (2026-05-07)
+
+### 🛠️ Other changes
+
+* **deps-dev:** bump react-native-builder-bob from 0.40.18 to 0.41.0 ([#18](https://github.com/omarsdev/react-native-nitro-compass/issues/18)) ([f21ea20](https://github.com/omarsdev/react-native-nitro-compass/commit/f21ea20669b187dba03289a8e60e8467fe8d75d1))
+
 ## [1.2.2](https://github.com/omarsdev/react-native-nitro-compass/compare/v1.2.1...v1.2.2) (2026-05-07)
 
 ### 🛠️ Other changes
