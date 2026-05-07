@@ -1,3 +1,9 @@
+## [1.0.5](https://github.com/omarsdev/react-native-nitro-compass/compare/v1.0.4...v1.0.5) (2026-05-07)
+
+### 🛠️ Other changes
+
+* **deps:** bump com.android.tools.build:gradle in /android ([#2](https://github.com/omarsdev/react-native-nitro-compass/issues/2)) ([8332001](https://github.com/omarsdev/react-native-nitro-compass/commit/833200125f54aaa29e1241529456042eb93c8246))
+
 ## [1.0.4](https://github.com/omarsdev/react-native-nitro-compass/compare/v1.0.3...v1.0.4) (2026-05-07)
 
 ### 🛠️ Other changes
