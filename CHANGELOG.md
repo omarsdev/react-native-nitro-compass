@@ -1,3 +1,24 @@
+## [1.1.0](https://github.com/omarsdev/react-native-nitro-compass/compare/v1.0.9...v1.1.0) (2026-05-07)
+
+### ✨ Features
+
+* **android:** smoothing, accuracy fix, interference-aware quality ([90287fb](https://github.com/omarsdev/react-native-nitro-compass/commit/90287fb5b88d7ebcada650ede8065803bb04ce6a))
+* **example:** wire smoothingAlpha into useCompass demo ([2847a54](https://github.com/omarsdev/react-native-nitro-compass/commit/2847a543f2a8a9154fdee104f47a7d1e6d3dfe32))
+* **hook:** expose smoothingAlpha option in useCompass ([7483c91](https://github.com/omarsdev/react-native-nitro-compass/commit/7483c91223119a171d4574f5eac7fe15d2b0568f))
+* **spec:** add setSmoothing(alpha) hybrid method ([532dba9](https://github.com/omarsdev/react-native-nitro-compass/commit/532dba92258817eb2887b5c45b7eb6584230d8b2))
+
+### 🐛 Bug Fixes
+
+* **ios:** tune heading accuracy buckets, add setSmoothing no-op ([53488d9](https://github.com/omarsdev/react-native-nitro-compass/commit/53488d9d50d71cc945af000448db3b8909630bbd))
+
+### 📚 Documentation
+
+* **readme:** cover accuracy buckets, smoothing, interference downgrade ([60f68a7](https://github.com/omarsdev/react-native-nitro-compass/commit/60f68a7209e96b8c82a0bd31a0210fbcc1da4684))
+
+### 🛠️ Other changes
+
+* **example:** switch nitro-compass dep from file: to link: ([f5689bf](https://github.com/omarsdev/react-native-nitro-compass/commit/f5689bfc6a892e8c326a8b9518cf0aa7300bea4b))
+
 ## [1.0.9](https://github.com/omarsdev/react-native-nitro-compass/compare/v1.0.8...v1.0.9) (2026-05-07)
 
 ### 📚 Documentation
