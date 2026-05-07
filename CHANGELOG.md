@@ -1,3 +1,9 @@
+## [1.0.6](https://github.com/omarsdev/react-native-nitro-compass/compare/v1.0.5...v1.0.6) (2026-05-07)
+
+### 💨 Performance Improvements
+
+* **example:** smooth dial via Reanimated + direct sensor subscription ([1f59133](https://github.com/omarsdev/react-native-nitro-compass/commit/1f5913386bfec0747a8dcd9e7fda7f0dd5665cd5))
+
 ## [1.0.5](https://github.com/omarsdev/react-native-nitro-compass/compare/v1.0.4...v1.0.5) (2026-05-07)
 
 ### 🛠️ Other changes
