@@ -1,3 +1,10 @@
+## [1.0.2](https://github.com/omarsdev/react-native-nitro-compass/compare/v1.0.1...v1.0.2) (2026-05-07)
+
+### 🛠️ Other changes
+
+* **deps-dev:** bump @types/jest from 29.5.14 to 30.0.0 ([#9](https://github.com/omarsdev/react-native-nitro-compass/issues/9)) ([6fb06ba](https://github.com/omarsdev/react-native-nitro-compass/commit/6fb06ba15e5a5d54a75d9c8f549c90152bb86100))
+* **deps-dev:** bump the react-native-cli group across 1 directory with 3 updates ([#7](https://github.com/omarsdev/react-native-nitro-compass/issues/7)) ([4fda4d5](https://github.com/omarsdev/react-native-nitro-compass/commit/4fda4d5d8509e2031989ef7bf14e4189f0811b70))
+
 ## [1.0.1](https://github.com/omarsdev/react-native-nitro-compass/compare/v1.0.0...v1.0.1) (2026-05-07)
 
 ### 🛠️ Other changes
