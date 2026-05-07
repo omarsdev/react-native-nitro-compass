@@ -52,6 +52,7 @@ NitroCompass.isStarted(): boolean
 NitroCompass.hasCompass(): boolean
 
 NitroCompass.setFilter(degrees: number): void
+NitroCompass.setSmoothing(alpha: number): void
 NitroCompass.getCurrentHeading(): CompassSample | undefined
 NitroCompass.getDiagnostics(): SensorDiagnostics | undefined
 NitroCompass.setDeclination(degrees: number): void
@@ -70,6 +71,7 @@ interface SensorDiagnostics { sensor: SensorKind }
 ```
 
 - `filterDegrees` — minimum change between successive samples before the next one is delivered. Pass `0` for "every event"; typical UI values are `1`–`3`. Use `setFilter()` to change live without tearing down the subscription.
+- `setSmoothing(alpha)` — low-pass smoothing factor (EMA α) applied to heading samples on Android. Range `(0, 1]`, default `0.2` (~100 ms time constant at 50 Hz). `1.0` disables smoothing; smaller values smooth more (kills jitter, adds a touch of latency). **No-op on iOS** — `CLLocationManager` filters internally with Apple's own algorithm, so layering an EMA on top would only add latency. See [Smoothing](#smoothing) below.
 - `start()` is idempotent in the destructive sense — calling it while already started silently replaces the previous subscription with the new callback. `stop()` is idempotent and safe from inside the `onHeading` callback.
 - `getDiagnostics()` reports which sensor would produce headings on this device — useful for explaining quality differences (e.g. a phone falling back to `geomagneticRotationVector` will be more susceptible to magnetic interference than one using `rotationVector`). Safe to call before `start()`.
 - `accuracy` is a numeric uncertainty (degrees). On iOS it comes from `CLHeading.headingAccuracy` directly. On Android it comes from `event.values[4]` of the rotation-vector sensor; if the sensor stack does not publish that (rare), the module falls back to a coarse degree estimate from `SensorManager.SENSOR_STATUS_*` (`HIGH→5°`, `MEDIUM→15°`, `LOW→30°`).
@@ -77,7 +79,12 @@ interface SensorDiagnostics { sensor: SensorKind }
 
 ### Calibration
 
-`setOnCalibrationNeeded(cb)` registers a callback fired whenever the calibration bucket transitions. Buckets are derived from numeric accuracy on both platforms using the same thresholds, so values agree across iOS and Android: `<5°` → `'high'`, `<15°` → `'medium'`, `<30°` → `'low'`, otherwise `'unreliable'`. On iOS, the system's "wave the device in a figure-8" prompt is suppressed and reported to your callback as `'unreliable'` — show your own UI when you receive that bucket.
+`setOnCalibrationNeeded(cb)` registers a callback fired whenever the calibration bucket transitions. Each platform's bucket is derived from its **native** accuracy semantics, since the underlying values are not directly comparable:
+
+- **iOS** uses `CLHeading.headingAccuracy` (degrees). Apple is conservative — even well-calibrated iPhones typically report `10–15°` and rarely below `5°` (per [Apple staff on the developer forums](https://developer.apple.com/forums/thread/79687)). Buckets: `<20°` → `'high'`, `<35°` → `'medium'`, `<55°` → `'low'`, otherwise `'unreliable'`. The system's "wave the device in a figure-8" prompt is suppressed and reported to your callback as `'unreliable'` — show your own UI when you receive that bucket.
+- **Android** uses `SensorManager.SENSOR_STATUS_*` from `onAccuracyChanged` directly (`HIGH` / `MEDIUM` / `LOW` / `UNRELIABLE`); when `event.values[4]` of the rotation vector publishes a per-sample degree estimate, that's used with thresholds `<5°` / `<15°` / `<30°`. **When magnetic interference is currently detected, the surfaced bucket is downgraded by one notch** (`HIGH→MEDIUM`, `MEDIUM→LOW`, `LOW→UNRELIABLE`) — Android's gyro+accel sensor fusion can keep the OS rotation-vector bucket high even while the magnetometer is being skewed, and surfacing `quality='high'` alongside `interfering=true` is contradictory UX.
+
+Both platforms can plausibly emit `'high'` on a clean device — the threshold split just reflects each OS's reporting style.
 
 ```ts
 NitroCompass.setOnCalibrationNeeded((q) => {
@@ -87,7 +94,9 @@ NitroCompass.setOnCalibrationNeeded((q) => {
 
 ### Magnetic interference
 
-`setOnInterferenceDetected(cb)` fires `true` when the raw magnetic field magnitude leaves the normal Earth band (~20–70 µT) and `false` when it returns. Typical sources are laptops, monitors, car engines, and large steel structures — these can skew heading by tens of degrees while the calibration bucket still reads `'medium'` or better, so this is complementary to the calibration callback rather than a replacement.
+`setOnInterferenceDetected(cb)` fires `true` when the raw magnetic field magnitude leaves the normal Earth band (~20–70 µT) and `false` when it returns. Typical sources are laptops, monitors, car engines, and large steel structures — these can skew heading by tens of degrees.
+
+Interference is surfaced two ways: (1) directly via this callback, and (2) on Android, the calibration bucket emitted by `setOnCalibrationNeeded` is downgraded by one notch while interference is detected (see the Calibration section above). On iOS, only the direct callback fires — `CLLocationManager`'s own accuracy reporting already responds to magnetometer disturbance, so a separate downgrade would double-count.
 
 ```ts
 NitroCompass.setOnInterferenceDetected((interfering) => {
@@ -116,6 +125,20 @@ NitroCompass.setDeclination(declination)
 
 Pass `0` to revert to magnetic. Declination survives `stop()`/`start()` cycles.
 
+### Smoothing
+
+Android's raw `TYPE_ROTATION_VECTOR` output jitters by `±1–3°` even at rest, which produces a visibly twitchy compass dial. iOS's `CLLocationManager` filters internally; Android does not. The library applies a circular EMA low-pass filter on `(sin θ, cos θ)` (handles `359°→0°` wraparound cleanly) before delivering samples, with `α = 0.2` by default — the same value used in [phishman3579/android-compass](https://github.com/phishman3579/android-compass/blob/master/src/com/jwetherell/compass/common/LowPassFilter.java) and within the range used by [Trail Sense](https://github.com/kylecorry31/Trail-Sense)'s production compass code.
+
+Tune live:
+
+```ts
+NitroCompass.setSmoothing(0.2)   // default — kills jitter, ~100 ms latency
+NitroCompass.setSmoothing(0.4)   // snappier, more visible jitter
+NitroCompass.setSmoothing(1.0)   // disabled — every sample passes through
+```
+
+`setSmoothing` is a no-op on iOS — Apple's stack already filters heading internally, so layering an EMA on top would only add latency without removing noise.
+
 ### Background pause
 
 By default the underlying sensor / location-manager subscription is silently paused while the app is backgrounded and resumed when it returns to the foreground; the JS callback and any declination set via `setDeclination` are preserved across the pause. To opt out (e.g. for a fitness tracker that needs heading while screen-off):
@@ -134,6 +157,7 @@ import { useCompass } from 'react-native-nitro-compass'
 function CompassView() {
   const { reading, quality, interfering, hasCompass } = useCompass({
     filterDegrees: 1,
+    smoothingAlpha: 0.2,
     declination: 0,
     pauseOnBackground: true,
     enabled: true,
@@ -161,11 +185,12 @@ function useCompass(options?: UseCompassOptions): UseCompassResult
 | Option | Type | Default | Description |
 | --- | --- | --- | --- |
 | `filterDegrees` | `number` | `1` | Minimum change between successive samples in degrees. Pass `0` for "every event". Updated live via `NitroCompass.setFilter()` whenever the prop changes. |
+| `smoothingAlpha` | `number` | `0.2` | Low-pass smoothing factor (EMA α) on Android. `1.0` disables smoothing; smaller values smooth more. No-op on iOS. See [Smoothing](#smoothing). |
 | `declination` | `number` | `0` | Magnetic-to-true offset in signed degrees. Pull from a model like [`geomagnetism`](https://github.com/kahirokunn/geomagnetism) keyed on the user's lat/lon. When non-zero, every emitted sample is true-north. |
 | `pauseOnBackground` | `boolean` | `true` | Pause the underlying sensor / location-manager subscription while the app is backgrounded and resume on foreground. |
 | `enabled` | `boolean` | `true` | Toggle the heading subscription without unmounting. When `false`, `reading` stops updating but calibration and interference observation continue (so you can still show warnings). |
 
-`filterDegrees`, `declination`, and `pauseOnBackground` map to global state on `NitroCompass` — if multiple hooks set them, last-write-wins.
+`filterDegrees`, `smoothingAlpha`, `declination`, and `pauseOnBackground` map to global state on `NitroCompass` — if multiple hooks set them, last-write-wins.
 
 #### Result
 
