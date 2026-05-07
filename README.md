@@ -124,6 +124,37 @@ By default the underlying sensor / location-manager subscription is silently pau
 NitroCompass.setPauseOnBackground(false)
 ```
 
+### `useCompass()` hook
+
+For React consumers, the bundled hook wraps the entire surface — subscription lifecycle, calibration/interference callbacks, and the live-tuneable knobs — into one ergonomic call. Multiple `useCompass()` mounts safely share the same underlying native subscription via JS-side fan-out, so two screens can both consume heading without clobbering each other.
+
+```tsx
+import { useCompass } from 'react-native-nitro-compass'
+
+function CompassView() {
+  const { reading, quality, interfering, hasCompass } = useCompass({
+    filterDegrees: 1,
+    declination: 0,
+    pauseOnBackground: true,
+  })
+
+  if (!hasCompass) return <Text>No compass on this device.</Text>
+  if (!reading) return <Text>Acquiring heading…</Text>
+
+  return (
+    <View>
+      <Text>{reading.heading.toFixed(0)}° (±{reading.accuracy.toFixed(0)}°)</Text>
+      {quality === 'unreliable' && <Text>Calibration needed</Text>}
+      {interfering && <Text>Magnetic interference</Text>}
+    </View>
+  )
+}
+```
+
+`filterDegrees`, `declination`, and `pauseOnBackground` are global state on `NitroCompass` — multiple hooks setting them are last-write-wins. Pass `enabled: false` to pause a hook's heading subscription without unmounting (calibration / interference observation continues).
+
+For non-React state managers, lower-level `addHeadingListener(cb): () => void`, `addCalibrationListener(cb): () => void`, and `addInterferenceListener(cb): () => void` are also exported. They are reference-counted: the first heading listener calls `start()`, the last unsubscribe calls `stop()`. Mixing these helpers with direct `NitroCompass.start()` / `setOnCalibrationNeeded()` / `setOnInterferenceDetected()` will clobber the multiplex's internal callback slot — pick one path.
+
 ## Permissions
 
 - **iOS**: requires `NSLocationWhenInUseUsageDescription` in `Info.plist`. `CLLocationManager` only emits headings when location permission is granted.

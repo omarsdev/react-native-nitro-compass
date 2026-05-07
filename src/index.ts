@@ -1,4 +1,3 @@
-import { NitroModules } from 'react-native-nitro-modules'
 import type {
   AccuracyQuality,
   CompassSample,
@@ -7,8 +6,16 @@ import type {
   SensorKind,
 } from './specs/NitroCompass.nitro'
 
+export { NitroCompass } from './native'
+
 export type { AccuracyQuality, CompassSample, SensorDiagnostics, SensorKind }
 export type { NitroCompassSpec as NitroCompassHybridObject }
 
-export const NitroCompass =
-  NitroModules.createHybridObject<NitroCompassSpec>('NitroCompass')
+export {
+  addCalibrationListener,
+  addHeadingListener,
+  addInterferenceListener,
+} from './multiplex'
+
+export { useCompass } from './hook'
+export type { UseCompassOptions, UseCompassResult } from './hook'

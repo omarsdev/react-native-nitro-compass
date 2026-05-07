@@ -6,13 +6,21 @@
 // change to the spec or the index re-exports is caught statically before
 // publish.
 
-import { NitroCompass } from '../index'
+import {
+  NitroCompass,
+  addCalibrationListener,
+  addHeadingListener,
+  addInterferenceListener,
+  useCompass,
+} from '../index'
 import type {
   AccuracyQuality,
   CompassSample,
   NitroCompassHybridObject,
   SensorDiagnostics,
   SensorKind,
+  UseCompassOptions,
+  UseCompassResult,
 } from '../index'
 
 export function _publicSurfaceShape(): {
@@ -52,6 +60,26 @@ export function _publicSurfaceShape(): {
     return ok
   })
   api.setPauseOnBackground(true)
+
+  // Multi-listener fan-out helpers.
+  const offH: () => void = addHeadingListener((s: CompassSample) => {
+    void s.heading
+  })
+  const offC: () => void = addCalibrationListener((q: AccuracyQuality) => {
+    void q
+  })
+  const offI: () => void = addInterferenceListener((b: boolean) => {
+    void b
+  })
+  offH()
+  offC()
+  offI()
+
+  // Hook surface — typed without invoking (would need a renderer).
+  const _useCompass: (
+    options?: UseCompassOptions
+  ) => UseCompassResult = useCompass
+  void _useCompass
 
   return { has, started, current, diagnostics }
 }
