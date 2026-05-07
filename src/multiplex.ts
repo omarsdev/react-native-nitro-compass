@@ -82,6 +82,13 @@ export function addHeadingListener(cb: HeadingListener): () => void {
   }
 }
 
+// Module-level no-op kept stable so we can swap it back into the native
+// callback slot when the last listener leaves — releasing references
+// to old dispatcher closures, which matters when the JS module is
+// re-evaluated (Metro Fast Refresh, jest module reset).
+const NOOP_CALIBRATION = (_: AccuracyQuality) => {}
+const NOOP_INTERFERENCE = (_: boolean) => {}
+
 /**
  * Subscribe to calibration-bucket transitions. Only fires while a
  * heading subscription is active. Returns the unsubscribe function.
@@ -95,7 +102,17 @@ export function addCalibrationListener(
   }
   calibrationListeners.add(cb)
   return () => {
-    calibrationListeners.delete(cb)
+    if (!calibrationListeners.delete(cb)) return
+    if (calibrationListeners.size === 0) {
+      // Detach our dispatcher from the native side. Without this, a
+      // module reload (Metro Fast Refresh, jest resetModules) leaves
+      // the old dispatcher pinned in native memory while a new module
+      // load installs a *second* dispatcher pointing at a fresh
+      // listener Set — splitting events between the two and silently
+      // dropping the now-orphaned listeners.
+      NitroCompass.setOnCalibrationNeeded(NOOP_CALIBRATION)
+      calibrationRegistered = false
+    }
   }
 }
 
@@ -112,6 +129,10 @@ export function addInterferenceListener(
   }
   interferenceListeners.add(cb)
   return () => {
-    interferenceListeners.delete(cb)
+    if (!interferenceListeners.delete(cb)) return
+    if (interferenceListeners.size === 0) {
+      NitroCompass.setOnInterferenceDetected(NOOP_INTERFERENCE)
+      interferenceRegistered = false
+    }
   }
 }

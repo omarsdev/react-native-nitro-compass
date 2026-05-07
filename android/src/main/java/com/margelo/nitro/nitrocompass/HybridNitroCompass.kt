@@ -229,9 +229,13 @@ class HybridNitroCompass : HybridNitroCompassSpec() {
   private var sensorHandler: Handler? = null
   private var activeListener: SensorEventListener? = null
   private var lifecycleCallbacks: Application.ActivityLifecycleCallbacks? = null
-  private var onHeading: ((CompassSample) -> Unit)? = null
-  private var calibrationCb: ((AccuracyQuality) -> Unit)? = null
-  private var interferenceCb: ((Boolean) -> Unit)? = null
+  // Callback fields are written from the JS thread (start, setOnX) and
+  // read from the sensor HandlerThread on every event. @Volatile gives
+  // them a happens-before guarantee so a late-registered listener
+  // becomes visible to the sensor thread on the next event.
+  @Volatile private var onHeading: ((CompassSample) -> Unit)? = null
+  @Volatile private var calibrationCb: ((AccuracyQuality) -> Unit)? = null
+  @Volatile private var interferenceCb: ((Boolean) -> Unit)? = null
 
   private val watchdogHandler = Handler(Looper.getMainLooper())
   private val watchdogRunnable = object : Runnable {
@@ -273,7 +277,10 @@ class HybridNitroCompass : HybridNitroCompassSpec() {
     synchronized(this) {
       stopLocked()
       started = true
-      filterDeg = filterDegrees.coerceAtLeast(0.0)
+      // NaN/-Inf would silently freeze heading delivery (`delta < NaN`
+      // is always false, suppressing every sample). Coerce to a sane
+      // default — same defensive policy as setFilter().
+      filterDeg = if (filterDegrees.isFinite()) filterDegrees.coerceAtLeast(0.0) else 0.0
       this.onHeading = onHeading
       lastEmittedHeading = Double.NaN
       lastAccuracyDeg = -1.0
@@ -304,6 +311,10 @@ class HybridNitroCompass : HybridNitroCompassSpec() {
   override fun isStarted(): Boolean = started
 
   override fun setFilter(degrees: Double) {
+    // Reject NaN/-Inf: these compare unordered against any value, so
+    // the deadband check (`delta < filterDeg`) would silently suppress
+    // every sample if filterDeg became NaN.
+    if (!degrees.isFinite()) return
     filterDeg = degrees.coerceAtLeast(0.0)
   }
 
@@ -312,6 +323,7 @@ class HybridNitroCompass : HybridNitroCompassSpec() {
     // `smoothedSin/Cos` would freeze at the first sample and the
     // surfaced heading would never move — a footgun if a caller
     // computes a small alpha and accidentally rounds to zero.
+    if (!alpha.isFinite()) return
     smoothingAlpha = alpha.coerceIn(0.01, 1.0)
   }
 
@@ -346,6 +358,9 @@ class HybridNitroCompass : HybridNitroCompassSpec() {
   override fun getCurrentHeading(): CompassSample? = lastSample
 
   override fun setDeclination(degrees: Double) {
+    // NaN propagates through the emit math (heading + declinationDeg)
+    // and would poison every emission until reset.
+    if (!degrees.isFinite()) return
     declinationDeg = degrees
   }
 
@@ -624,6 +639,9 @@ class HybridNitroCompass : HybridNitroCompassSpec() {
   private fun handleSensorEvent(event: SensorEvent) {
     when (event.sensor.type) {
       Sensor.TYPE_ACCELEROMETER -> {
+        if (!event.values[0].isFinite() || !event.values[1].isFinite() ||
+          !event.values[2].isFinite()
+        ) return
         if (!hasAccel) {
           // Seed with the first sample to avoid an artificial ramp-up
           // from zero, which would skew the orientation calc for
@@ -648,6 +666,9 @@ class HybridNitroCompass : HybridNitroCompassSpec() {
         // signal — when the OS revises its bias, the field environment
         // just changed (likely a magnet on/off), even if the corrected
         // magnitude stays in the Earth band.
+        if (!event.values[0].isFinite() || !event.values[1].isFinite() ||
+          !event.values[2].isFinite()
+        ) return
         val correctedX: Float
         val correctedY: Float
         val correctedZ: Float
@@ -715,6 +736,13 @@ class HybridNitroCompass : HybridNitroCompassSpec() {
         // separate `lastGameRvEventNs` (not the shared `lastEventNs`)
         // so the watchdog can detect a gyro-only freeze without being
         // suppressed by accel/mag continuing to fire.
+        // Reject non-finite sensor values up-front. Some Samsung /
+        // MediaTek HALs occasionally emit a single NaN sample; without
+        // this guard, NaN would propagate through getRotationMatrixFromVector
+        // and permanently poison `fusedYawDeg` until recalibrate().
+        if (!event.values[0].isFinite() || !event.values[1].isFinite() ||
+          !event.values[2].isFinite() || !event.values[3].isFinite()
+        ) return
         lastGameRvEventNs = SystemClock.elapsedRealtimeNanos()
         SensorManager.getRotationMatrixFromVector(gameRvRotationMatrix, event.values)
         val (axisX, axisY) = when (currentSurfaceRotation()) {
@@ -723,9 +751,17 @@ class HybridNitroCompass : HybridNitroCompassSpec() {
           Surface.ROTATION_270 -> SensorManager.AXIS_MINUS_Y to SensorManager.AXIS_X
           else -> SensorManager.AXIS_X to SensorManager.AXIS_Y
         }
-        SensorManager.remapCoordinateSystem(gameRvRotationMatrix, axisX, axisY, gameRvRemappedMatrix)
+        // remapCoordinateSystem returns false for invalid axis pairs
+        // (the input matrix is left as zero-init garbage). Skip the
+        // sample on failure so getOrientation() doesn't read from a
+        // stale/zero matrix.
+        if (!SensorManager.remapCoordinateSystem(
+            gameRvRotationMatrix, axisX, axisY, gameRvRemappedMatrix
+          )
+        ) return
         SensorManager.getOrientation(gameRvRemappedMatrix, gameRvOrientation)
         var yawDeg = Math.toDegrees(gameRvOrientation[0].toDouble())
+        if (yawDeg.isNaN()) return
         if (yawDeg < 0.0) yawDeg += 360.0
 
         val nowNs = SystemClock.elapsedRealtimeNanos()
@@ -737,11 +773,24 @@ class HybridNitroCompass : HybridNitroCompassSpec() {
           while (dYaw < -180.0) dYaw += 360.0
           val dtSec = (nowNs - lastGameRvTimeNs) / 1e9
           if (dtSec > 0.001) {
-            lastYawRateDegPerS = dYaw / dtSec
+            // EMA the yaw rate so a single 100°/s spike on a still
+            // device can't transiently weaken the input low-pass and
+            // amplify steady-state jitter. α=0.3 → ~3-sample window.
+            val instantaneous = dYaw / dtSec
+            lastYawRateDegPerS = if (lastYawRateDegPerS == 0.0) {
+              instantaneous
+            } else {
+              0.3 * instantaneous + 0.7 * lastYawRateDegPerS
+            }
           }
           if (!fusedYawDeg.isNaN()) {
             // Integrate gyro-derived yaw rate into the fused estimate.
-            fusedYawDeg = wrap360(fusedYawDeg + dYaw)
+            val next = wrap360(fusedYawDeg + dYaw)
+            // Defensive: if any prior arithmetic poisoned fusedYawDeg
+            // with NaN (e.g. via a downstream mixYawCircular that read
+            // NaN inputs), reseed from raw mag yaw on the next mag
+            // sample by leaving fusedYawDeg as NaN here.
+            fusedYawDeg = if (next.isFinite()) next else Double.NaN
           }
         }
         lastGameRvYawDeg = yawDeg
@@ -770,10 +819,14 @@ class HybridNitroCompass : HybridNitroCompassSpec() {
       Surface.ROTATION_270 -> SensorManager.AXIS_MINUS_Y to SensorManager.AXIS_X
       else -> SensorManager.AXIS_X to SensorManager.AXIS_Y
     }
-    SensorManager.remapCoordinateSystem(rotationMatrix, axisX, axisY, remappedMatrix)
+    if (!SensorManager.remapCoordinateSystem(
+        rotationMatrix, axisX, axisY, remappedMatrix
+      )
+    ) return
     SensorManager.getOrientation(remappedMatrix, orientation)
 
     var magYawDeg = Math.toDegrees(orientation[0].toDouble())
+    if (magYawDeg.isNaN()) return
     if (magYawDeg < 0.0) magYawDeg += 360.0
 
     // Drive the output from `fusedYawDeg` whenever we have a working
@@ -790,7 +843,11 @@ class HybridNitroCompass : HybridNitroCompassSpec() {
       // Keep `fusedYawDeg` seeded for the moment game-RV starts firing.
       fusedYawDeg = magYawDeg
       magYawDeg
-    } else if (fusedYawDeg.isNaN() || seedFusedYaw) {
+    } else if (fusedYawDeg.isNaN() || !fusedYawDeg.isFinite() || seedFusedYaw) {
+      // Either we've never seeded fusion yet, or a prior arithmetic step
+      // poisoned it with NaN/Inf. Either way, snap to the current
+      // mag-derived truth so a single bad sample can't permanently
+      // freeze heading delivery.
       seedFusedYaw = false
       fusedYawDeg = magYawDeg
       magYawDeg
@@ -798,7 +855,8 @@ class HybridNitroCompass : HybridNitroCompassSpec() {
       // Trust gyro alone during interference — skip the mag mix.
       fusedYawDeg
     } else {
-      fusedYawDeg = mixYawCircular(fusedYawDeg, magYawDeg, MAG_CORRECTION_ALPHA)
+      val mixed = mixYawCircular(fusedYawDeg, magYawDeg, MAG_CORRECTION_ALPHA)
+      fusedYawDeg = if (mixed.isFinite()) mixed else magYawDeg
       fusedYawDeg
     }
 

@@ -26,14 +26,27 @@ export interface CompassSample {
 }
 
 /**
- * Coarse calibration bucket reported via `setOnCalibrationNeeded`. Buckets
- * are derived from numeric heading accuracy on both platforms (same
- * thresholds), so values agree across iOS and Android:
+ * Coarse calibration bucket reported via `setOnCalibrationNeeded`. The
+ * bucket is derived from a numeric heading-accuracy estimate on both
+ * platforms, but the thresholds differ because the underlying scales
+ * disagree:
  *
- *   `<5°` → `high`, `<15°` → `medium`, `<30°` → `low`, otherwise `unreliable`.
+ * - **Android** — direct mapping from `SensorManager.SENSOR_STATUS_*`:
+ *   `HIGH` → `high`, `MEDIUM` → `medium`, `LOW` → `low`,
+ *   `UNRELIABLE`/`NO_CONTACT` → `unreliable`. The numeric `accuracy`
+ *   field on `CompassSample` is a synthetic upper bound (`<5°`,
+ *   `<15°`, `<30°`, `-1`).
+ * - **iOS** — bucketed from `CLHeading.headingAccuracy` (degrees) with
+ *   relaxed thresholds because Apple's stack rarely reports under 5°
+ *   even on a perfectly-calibrated compass:
+ *   `<20°` → `high`, `<35°` → `medium`, `<55°` → `low`, otherwise
+ *   `unreliable`. `unreliable` is also reported when iOS asks to
+ *   display its built-in calibration UI (we suppress the system UI so
+ *   you can render your own banner).
  *
- * On iOS `unreliable` is also reported when the system asks to display
- * its built-in calibration UI (we suppress it).
+ * The buckets are intended for UX ("show calibrate prompt") — exact
+ * cross-platform parity isn't possible because the platforms emit
+ * different underlying signals.
  */
 export type AccuracyQuality = 'high' | 'medium' | 'low' | 'unreliable'
 

@@ -17,8 +17,16 @@ export function DebugPanel() {
 
   useEffect(() => {
     if (!open) return;
-    setInfo(NitroCompass.getDebugInfo());
-    const id = setInterval(() => setInfo(NitroCompass.getDebugInfo()), POLL_MS);
+    const tick = () => {
+      try {
+        setInfo(NitroCompass.getDebugInfo());
+      } catch {
+        // Native side absent (e.g. web target) or transiently throwing
+        // — keep the panel mounted, just don't update.
+      }
+    };
+    tick();
+    const id = setInterval(tick, POLL_MS);
     return () => clearInterval(id);
   }, [open]);
 

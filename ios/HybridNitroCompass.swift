@@ -47,6 +47,14 @@ class HybridNitroCompass: HybridNitroCompassSpec {
   // every CompassSample so consumers can render a strength meter; -1
   // until CMDeviceMotion produces its first calibrated reading.
   private var lastFieldUt: Double = -1
+  // Counter of consecutive non-uncalibrated motion samples. CoreMotion's
+  // bias estimate takes a second or two of normal motion to converge
+  // after subscribe; emitting interference transitions before then
+  // produces false positives because the early "calibrated" field is
+  // dominated by the device's own internal bias. Wait for N stable
+  // samples before trusting the magnitude reading.
+  private var motionStableSampleCount: Int = 0
+  private static let motionStableSampleThreshold: Int = 5
   private var pauseOnBackground: Bool = true
   private var started: Bool = false
   private var isSubscribed: Bool = false
@@ -63,7 +71,10 @@ class HybridNitroCompass: HybridNitroCompassSpec {
     super.init()
     let setup = {
       let m = CLLocationManager()
-      m.headingFilter = 1
+      // headingFilter is overwritten by subscribe() each start(); the
+      // init value is only relevant if a caller queried headingFilter
+      // before start, which nothing does. Pick the default that matches
+      // activeFilterDegrees so a stray query is consistent.
       m.desiredAccuracy = kCLLocationAccuracyNearestTenMeters
       self.manager = m
     }
@@ -232,6 +243,10 @@ class HybridNitroCompass: HybridNitroCompassSpec {
 
   func setOnCalibrationNeeded(onChange: @escaping (_ quality: AccuracyQuality) -> Void) throws {
     calibrationCb = onChange
+    // Replay current bucket so a late-registering consumer sees the
+    // truth instead of waiting for the next transition. Mirrors the
+    // setOnInterferenceDetected behavior.
+    if let last = lastQuality { onChange(last) }
   }
 
   func setOnInterferenceDetected(onChange: @escaping (_ interferenceDetected: Bool) -> Void) throws {
@@ -261,7 +276,11 @@ class HybridNitroCompass: HybridNitroCompassSpec {
     // comparisons, and dismisses any pending heading-calibration
     // overlay so the consumer can prompt fresh.
     guard started else { return }
-    manager.dismissHeadingCalibrationDisplay()
+    // dismissHeadingCalibrationDisplay touches UIKit-adjacent state and
+    // must run on main. recalibrate() may be called from the JS thread.
+    DispatchQueue.main.async { [weak self] in
+      self?.manager.dismissHeadingCalibrationDisplay()
+    }
     let wasSubscribed = isSubscribed
     if wasSubscribed { unsubscribe() }
     lastSample = nil
@@ -345,13 +364,28 @@ class HybridNitroCompass: HybridNitroCompassSpec {
     guard motionManager.isDeviceMotionAvailable,
           !motionManager.isDeviceMotionActive else { return }
     motionManager.deviceMotionUpdateInterval = 0.2 // 5Hz
+    motionStableSampleCount = 0
     motionManager.startDeviceMotionUpdates(to: motionQueue) { [weak self] motion, _ in
       guard let self = self, let m = motion else { return }
       let cal = m.magneticField
-      if cal.accuracy == .uncalibrated { return }
+      if cal.accuracy == .uncalibrated {
+        // Bias estimate not yet usable. Reset stability counter so the
+        // post-convergence count starts fresh.
+        self.motionStableSampleCount = 0
+        return
+      }
       let f = cal.field
       let magnitude = sqrt(f.x * f.x + f.y * f.y + f.z * f.z)
       self.lastFieldUt = magnitude
+
+      // Wait for N consecutive non-uncalibrated samples before letting
+      // magnitude drive interference transitions. Without this, the
+      // first second post-subscribe routinely fires false positives
+      // because the bias estimate hasn't converged yet.
+      if self.motionStableSampleCount < Self.motionStableSampleThreshold {
+        self.motionStableSampleCount += 1
+        return
+      }
       self.evaluateInterference(magnitude: magnitude)
     }
   }
@@ -360,6 +394,7 @@ class HybridNitroCompass: HybridNitroCompassSpec {
     if motionManager.isDeviceMotionActive {
       motionManager.stopDeviceMotionUpdates()
     }
+    motionStableSampleCount = 0
   }
 
   private func evaluateInterference(magnitude: Double) {
@@ -452,6 +487,19 @@ class HybridNitroCompass: HybridNitroCompassSpec {
   }
 
   private func applyHeadingOrientation() {
+    // Prefer device orientation for face-up / face-down — those don't
+    // appear in interfaceOrientation but matter for headings on tablets
+    // held flat. Fall back to interfaceOrientation for the standard
+    // four cases (which respects app rotation locks).
+    let device = UIDevice.current.orientation
+    if device == .faceUp {
+      manager.headingOrientation = .faceUp
+      return
+    }
+    if device == .faceDown {
+      manager.headingOrientation = .faceDown
+      return
+    }
     let scene = UIApplication.shared.connectedScenes
       .compactMap { $0 as? UIWindowScene }
       .first

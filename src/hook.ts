@@ -84,14 +84,32 @@ export function useCompass(
   const [quality, setQuality] = useState<AccuracyQuality | null>(null)
   const [interfering, setInterfering] = useState(false)
 
-  const [hasCompass] = useState(() => NitroCompass.hasCompass())
-  const [diagnostics] = useState(() => NitroCompass.getDiagnostics())
+  // Wrap in try/catch so a missing/misconfigured native module doesn't
+  // throw during render — return safe defaults and let the host UI
+  // surface "no compass". Without this, the throw bubbles up and
+  // becomes a render error that blanks the screen.
+  const [hasCompass] = useState(() => {
+    try {
+      return NitroCompass.hasCompass()
+    } catch {
+      return false
+    }
+  })
+  const [diagnostics] = useState(() => {
+    try {
+      return NitroCompass.getDiagnostics()
+    } catch {
+      return undefined
+    }
+  })
 
-  // Tracked via ref so the heading-subscription effect can re-apply
-  // the user's filter after a stop/start cycle without restarting on
-  // every filterDegrees change.
+  // Tracked via refs so the heading-subscription effect can re-apply
+  // the user's filter and smoothing after a stop/start cycle without
+  // restarting on every option change.
   const filterRef = useRef(filterDegrees)
   filterRef.current = filterDegrees
+  const smoothingRef = useRef(smoothingAlpha)
+  smoothingRef.current = smoothingAlpha
 
   useEffect(() => {
     NitroCompass.setFilter(filterDegrees)
@@ -120,11 +138,32 @@ export function useCompass(
   }, [hasCompass])
 
   useEffect(() => {
-    if (!hasCompass || !enabled) return
-    const off = addHeadingListener(setReading)
-    // Multiplex starts the sensor with a default filter; re-apply the
-    // current option after subscribing.
-    NitroCompass.setFilter(filterRef.current)
+    if (!hasCompass || !enabled) {
+      // When the user disables the hook, clear stale UI state.
+      // Without this, `reading` / `interfering` keep their last value
+      // forever, so the consumer's UI can't tell "subscription is off"
+      // from "compass is currently quiet".
+      setReading(null)
+      setInterfering(false)
+      return
+    }
+    let off: (() => void) | undefined
+    try {
+      off = addHeadingListener(setReading)
+      // Multiplex starts the sensor with a default filter; re-apply
+      // the current options after subscribing. recalibrate() can also
+      // reset native smoothing state, so we pin our chosen alpha back
+      // here as well.
+      NitroCompass.setFilter(filterRef.current)
+      NitroCompass.setSmoothing(smoothingRef.current)
+    } catch (e) {
+      // start() throws on iOS when location authorization is denied.
+      // Swallow it here so the hook tree doesn't unmount; consumers
+      // should call NitroCompass.requestPermission() explicitly before
+      // setting enabled=true if they want to recover.
+      // eslint-disable-next-line no-console
+      console.warn('[NitroCompass] failed to start heading subscription:', e)
+    }
     return off
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasCompass, enabled])
