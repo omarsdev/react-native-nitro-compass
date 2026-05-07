@@ -56,6 +56,16 @@ class HybridNitroCompass : HybridNitroCompassSpec() {
     // structural steel routinely push readings well above 100 µT.
     private const val EARTH_FIELD_MIN_UT = 20.0
     private const val EARTH_FIELD_MAX_UT = 70.0
+
+    // Default low-pass smoothing for the rotation-vector output. iOS's
+    // CLLocationManager already filters heading internally; the raw
+    // Android rotation vector does not, so the dial visibly jitters
+    // by 1–3° at rest. Smoothing (sin θ, cos θ) instead of θ avoids
+    // 359°→0° wraparound artifacts. α=0.2 gives a ~5-sample time
+    // constant — at SENSOR_DELAY_GAME (~20ms) that's ~100ms of lag,
+    // imperceptible compared to the noise it removes. Tunable live
+    // via setSmoothing().
+    private const val DEFAULT_SMOOTHING_ALPHA = 0.2
   }
 
   @Volatile private var filterDeg: Double = 1.0
@@ -70,6 +80,17 @@ class HybridNitroCompass : HybridNitroCompassSpec() {
   @Volatile private var lastEventNs: Long = 0L
   @Volatile private var lastInterference: Boolean? = null
   @Volatile private var currentActivityRef: WeakReference<Activity>? = null
+  @Volatile private var smoothedSin: Double = Double.NaN
+  @Volatile private var smoothedCos: Double = Double.NaN
+  @Volatile private var smoothingAlpha: Double = DEFAULT_SMOOTHING_ALPHA
+  // Tracks whether the rotation-vector sensor publishes a per-sample
+  // accuracy in `event.values[4]`. Many devices don't, in which case the
+  // synthetic degree floor derived from SENSOR_STATUS_* is the only
+  // accuracy signal available — and we have to keep it updated.
+  @Volatile private var hasPerSampleAccuracy: Boolean = false
+  // Last raw quality from the OS, before the interference downgrade is
+  // applied. Used to re-derive `lastQuality` when interference toggles.
+  @Volatile private var lastRawQuality: AccuracyQuality? = null
 
   private val rotationMatrix = FloatArray(16)
   private val remappedMatrix = FloatArray(16)
@@ -131,6 +152,8 @@ class HybridNitroCompass : HybridNitroCompassSpec() {
       lastSample = null
       lastQuality = null
 
+      hasPerSampleAccuracy = false
+      lastRawQuality = null
       registerLifecycleCallbacks()
       subscribeLocked()
     }
@@ -153,6 +176,10 @@ class HybridNitroCompass : HybridNitroCompassSpec() {
 
   override fun setFilter(degrees: Double) {
     filterDeg = degrees.coerceAtLeast(0.0)
+  }
+
+  override fun setSmoothing(alpha: Double) {
+    smoothingAlpha = alpha.coerceIn(0.0, 1.0)
   }
 
   override fun getDiagnostics(): SensorDiagnostics? {
@@ -254,6 +281,8 @@ class HybridNitroCompass : HybridNitroCompassSpec() {
     activeListener = listener
     isSubscribed = true
 
+    smoothedSin = Double.NaN
+    smoothedCos = Double.NaN
     lastEventNs = 0L
     watchdogHandler.removeCallbacks(watchdogRunnable)
     watchdogHandler.postDelayed(watchdogRunnable, WATCHDOG_PERIOD_MS)
@@ -380,9 +409,11 @@ class HybridNitroCompass : HybridNitroCompassSpec() {
 
     var heading = Math.toDegrees(orientation[0].toDouble())
     if (heading < 0.0) heading += 360.0
+    heading = smoothHeading(heading)
 
     if (event.values.size > 4 && event.values[4] >= 0f) {
       val acc = Math.toDegrees(event.values[4].toDouble())
+      hasPerSampleAccuracy = true
       lastAccuracyDeg = acc
       fireCalibration(qualityFor(acc))
     }
@@ -409,6 +440,14 @@ class HybridNitroCompass : HybridNitroCompassSpec() {
     if (lastInterference == isInterference) return
     lastInterference = isInterference
     interferenceCb?.invoke(isInterference)
+    // External interference makes the heading less trustworthy even when
+    // the OS rotation-vector accuracy hasn't downgraded (gyro+accel can
+    // keep its bucket high while the magnetometer is being skewed). Pump
+    // the last raw quality back through fireCalibration so the
+    // interference-aware downgrade is applied, and refresh the synthetic
+    // degree value to match.
+    lastRawQuality?.let { fireCalibration(it) }
+    if (!hasPerSampleAccuracy) refreshSyntheticAccuracy()
   }
 
   private fun handleAccuracyChanged(accuracy: Int) {
@@ -418,15 +457,34 @@ class HybridNitroCompass : HybridNitroCompassSpec() {
       SensorManager.SENSOR_STATUS_ACCURACY_LOW -> AccuracyQuality.LOW
       else -> AccuracyQuality.UNRELIABLE
     }
-    if (lastAccuracyDeg < 0.0) {
-      lastAccuracyDeg = when (quality) {
-        AccuracyQuality.HIGH -> 5.0
-        AccuracyQuality.MEDIUM -> 15.0
-        AccuracyQuality.LOW -> 30.0
-        AccuracyQuality.UNRELIABLE -> -1.0
-      }
-    }
     fireCalibration(quality)
+    if (!hasPerSampleAccuracy) refreshSyntheticAccuracy()
+  }
+
+  private fun smoothHeading(degrees: Double): Double {
+    val rad = Math.toRadians(degrees)
+    val s = Math.sin(rad)
+    val c = Math.cos(rad)
+    val ss = smoothedSin
+    val cs = smoothedCos
+    if (ss.isNaN() || cs.isNaN()) {
+      smoothedSin = s
+      smoothedCos = c
+      return degrees
+    }
+    val a = smoothingAlpha
+    if (a >= 1.0) {
+      smoothedSin = s
+      smoothedCos = c
+      return degrees
+    }
+    val newSin = a * s + (1.0 - a) * ss
+    val newCos = a * c + (1.0 - a) * cs
+    smoothedSin = newSin
+    smoothedCos = newCos
+    var deg = Math.toDegrees(Math.atan2(newSin, newCos))
+    if (deg < 0.0) deg += 360.0
+    return deg
   }
 
   private fun qualityFor(accuracyDeg: Double): AccuracyQuality {
@@ -439,10 +497,44 @@ class HybridNitroCompass : HybridNitroCompassSpec() {
     }
   }
 
+  private fun degreesFor(quality: AccuracyQuality): Double = when (quality) {
+    AccuracyQuality.HIGH -> 5.0
+    AccuracyQuality.MEDIUM -> 15.0
+    AccuracyQuality.LOW -> 30.0
+    AccuracyQuality.UNRELIABLE -> -1.0
+  }
+
+  // Magnetic interference is a separate signal from rotation-vector
+  // accuracy on Android — gyro+accel can keep the OS bucket "HIGH" even
+  // while the magnetometer is being skewed by a laptop / car / steel.
+  // Reporting `quality=high` while `interfering=true` is contradictory
+  // UX, so we downgrade the surfaced bucket by one notch when
+  // interference is currently detected.
+  private fun effectiveQuality(raw: AccuracyQuality): AccuracyQuality {
+    if (lastInterference != true) return raw
+    return when (raw) {
+      AccuracyQuality.HIGH -> AccuracyQuality.MEDIUM
+      AccuracyQuality.MEDIUM -> AccuracyQuality.LOW
+      AccuracyQuality.LOW -> AccuracyQuality.UNRELIABLE
+      AccuracyQuality.UNRELIABLE -> AccuracyQuality.UNRELIABLE
+    }
+  }
+
+  // For devices that don't publish a per-sample accuracy in
+  // event.values[4], the only accuracy signal is the OS bucket. Map the
+  // current effective bucket back to a representative degree value so
+  // CompassSample.accuracy reflects interference too.
+  private fun refreshSyntheticAccuracy() {
+    val raw = lastRawQuality ?: return
+    lastAccuracyDeg = degreesFor(effectiveQuality(raw))
+  }
+
   private fun fireCalibration(quality: AccuracyQuality) {
-    if (quality == lastQuality) return
-    lastQuality = quality
-    calibrationCb?.invoke(quality)
+    lastRawQuality = quality
+    val effective = effectiveQuality(quality)
+    if (effective == lastQuality) return
+    lastQuality = effective
+    calibrationCb?.invoke(effective)
   }
 
   private fun currentSurfaceRotation(): Int {
