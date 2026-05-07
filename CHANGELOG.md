@@ -1,3 +1,9 @@
+## [1.0.9](https://github.com/omarsdev/react-native-nitro-compass/compare/v1.0.8...v1.0.9) (2026-05-07)
+
+### 📚 Documentation
+
+* **readme:** document useCompass hook and Reanimated dial recipe ([83f6691](https://github.com/omarsdev/react-native-nitro-compass/commit/83f6691c174293f0021ef49c6b6fd142e9e8215d))
+
 ## [1.0.8](https://github.com/omarsdev/react-native-nitro-compass/compare/v1.0.7...v1.0.8) (2026-05-07)
 
 ### 🛠️ Other changes
