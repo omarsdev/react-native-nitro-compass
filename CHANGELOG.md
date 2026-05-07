@@ -1,3 +1,9 @@
+## [1.2.4](https://github.com/omarsdev/react-native-nitro-compass/compare/v1.2.3...v1.2.4) (2026-05-07)
+
+### 🛠️ Other changes
+
+* **deps:** bump actions/setup-node from 4 to 6 ([#15](https://github.com/omarsdev/react-native-nitro-compass/issues/15)) ([7fb91cf](https://github.com/omarsdev/react-native-nitro-compass/commit/7fb91cf2b0bd07e9e08a14a2ac7dbc807b354827))
+
 ## [1.2.3](https://github.com/omarsdev/react-native-nitro-compass/compare/v1.2.2...v1.2.3) (2026-05-07)
 
 ### 🛠️ Other changes
