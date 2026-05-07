@@ -1,6 +1,7 @@
 package com.margelo.nitro.nitrocompass
 
 import android.app.Activity
+import android.app.ActivityManager
 import android.app.Application
 import android.content.Context
 import android.hardware.Sensor
@@ -20,6 +21,7 @@ import java.lang.ref.WeakReference
 import androidx.annotation.Keep
 import com.facebook.proguard.annotations.DoNotStrip
 import com.margelo.nitro.NitroModules
+import com.margelo.nitro.core.Promise
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.math.abs
 import kotlin.math.sqrt
@@ -65,7 +67,6 @@ class HybridNitroCompass : HybridNitroCompassSpec() {
   @Volatile private var pauseOnBackground: Boolean = true
   @Volatile private var started: Boolean = false
   @Volatile private var isSubscribed: Boolean = false
-  @Volatile private var activeFilterDegrees: Double = 1.0
   @Volatile private var lastEventNs: Long = 0L
   @Volatile private var lastInterference: Boolean? = null
   @Volatile private var currentActivityRef: WeakReference<Activity>? = null
@@ -88,9 +89,15 @@ class HybridNitroCompass : HybridNitroCompassSpec() {
   private val watchdogHandler = Handler(Looper.getMainLooper())
   private val watchdogRunnable = object : Runnable {
     override fun run() {
+      // When the app is backgrounded, the OS legitimately suspends or
+      // throttles non-wake-up sensors (Doze on API 23+, background limits
+      // on API 26+). Re-registering the listener won't change that — it
+      // just burns power flapping every 1.5s. Skip the staleness check
+      // and re-arm; we'll resume normal watchdog behaviour on foreground.
+      val backgrounded = activityCounter.get() == 0
       val last = lastEventNs
       val now = SystemClock.elapsedRealtimeNanos()
-      if (last > 0L && now - last > STALE_THRESHOLD_NS) {
+      if (!backgrounded && last > 0L && now - last > STALE_THRESHOLD_NS) {
         synchronized(this@HybridNitroCompass) {
           if (started && isSubscribed) {
             unsubscribeLocked()
@@ -117,7 +124,6 @@ class HybridNitroCompass : HybridNitroCompassSpec() {
     synchronized(this) {
       stopLocked()
       started = true
-      activeFilterDegrees = filterDegrees
       filterDeg = filterDegrees.coerceAtLeast(0.0)
       this.onHeading = onHeading
       lastEmittedHeading = Double.NaN
@@ -146,7 +152,6 @@ class HybridNitroCompass : HybridNitroCompassSpec() {
   override fun isStarted(): Boolean = started
 
   override fun setFilter(degrees: Double) {
-    activeFilterDegrees = degrees
     filterDeg = degrees.coerceAtLeast(0.0)
   }
 
@@ -174,6 +179,10 @@ class HybridNitroCompass : HybridNitroCompassSpec() {
 
   override fun setOnInterferenceDetected(onChange: (interferenceDetected: Boolean) -> Unit) {
     interferenceCb = onChange
+    // Replay the current state so a late-registering consumer sees the
+    // truth instead of waiting for the next transition (which may never
+    // arrive if the field stays stable).
+    lastInterference?.let(onChange)
   }
 
   override fun setPauseOnBackground(enabled: Boolean) {
@@ -185,6 +194,16 @@ class HybridNitroCompass : HybridNitroCompassSpec() {
         subscribeLocked()
       }
     }
+  }
+
+  // Sensors don't require a runtime permission on Android, so both
+  // permission methods are unconditionally granted.
+  override fun getPermissionStatus(): PermissionStatus = PermissionStatus.GRANTED
+
+  override fun requestPermission(): Promise<PermissionStatus> {
+    val p = Promise<PermissionStatus>()
+    p.resolve(PermissionStatus.GRANTED)
+    return p
   }
 
   private fun stopLocked() {
@@ -264,7 +283,11 @@ class HybridNitroCompass : HybridNitroCompassSpec() {
   private fun registerLifecycleCallbacks() {
     if (lifecycleCallbacks != null) return
     val app = NitroModules.applicationContext?.applicationContext as? Application ?: return
-    activityCounter.set(1)
+    // start() can be called from a headless / background context (e.g. a
+    // headless JS task, or before any Activity has come up). Don't assume
+    // foreground — query the OS so pauseOnBackground=true actually keeps
+    // the sensor unsubscribed when the app isn't user-visible.
+    activityCounter.set(if (isAppInForeground(app)) 1 else 0)
     val cb = object : Application.ActivityLifecycleCallbacks {
       override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) {
         captureActivity(activity)
@@ -302,6 +325,18 @@ class HybridNitroCompass : HybridNitroCompassSpec() {
 
   private fun captureActivity(activity: Activity) {
     currentActivityRef = WeakReference(activity)
+  }
+
+  private fun isAppInForeground(app: Application): Boolean {
+    val am = app.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager ?: return true
+    val procs = am.runningAppProcesses ?: return true
+    val pid = android.os.Process.myPid()
+    for (proc in procs) {
+      if (proc.pid == pid) {
+        return proc.importance <= ActivityManager.RunningAppProcessInfo.IMPORTANCE_VISIBLE
+      }
+    }
+    return true
   }
 
   private fun handleBackground() {

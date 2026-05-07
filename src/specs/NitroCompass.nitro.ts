@@ -53,6 +53,19 @@ export interface SensorDiagnostics {
 }
 
 /**
+ * Platform permission state required to deliver headings.
+ *
+ * - `granted` — headings will deliver. iOS: `authorizedAlways` /
+ *   `authorizedWhenInUse`. Android: always (sensors require no permission).
+ * - `denied` — user has refused or the OS has restricted access (e.g.
+ *   parental controls). On iOS, `start()` will throw with this status.
+ * - `unknown` — iOS `notDetermined`: nothing has been asked yet. Calling
+ *   `requestPermission()` is the way to resolve from `unknown` to
+ *   `granted`/`denied`.
+ */
+export type PermissionStatus = 'granted' | 'denied' | 'unknown'
+
+/**
  * Native compass module. Pull this from `NitroModules.createHybridObject`
  * via the bundled `NitroCompass` export, e.g.:
  *
@@ -160,4 +173,21 @@ export interface NitroCompass extends HybridObject<{ ios: 'swift'; android: 'kot
    * `start()`; takes effect immediately.
    */
   setPauseOnBackground(enabled: boolean): void
+
+  /**
+   * Read the current platform permission state synchronously.
+   * On Android this is always `'granted'` (sensors require no permission);
+   * on iOS it maps `CLLocationManager.authorizationStatus`.
+   */
+  getPermissionStatus(): PermissionStatus
+
+  /**
+   * Request the platform permission required to deliver headings. On iOS
+   * this prompts the system "Allow location" dialog if the status is
+   * `'unknown'` and resolves once the user makes a choice. If already
+   * `'granted'` or `'denied'` it resolves immediately with that value
+   * (iOS does not re-prompt). On Android it resolves immediately with
+   * `'granted'`.
+   */
+  requestPermission(): Promise<PermissionStatus>
 }

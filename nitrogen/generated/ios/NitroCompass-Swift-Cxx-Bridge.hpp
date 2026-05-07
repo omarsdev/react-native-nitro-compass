@@ -14,6 +14,8 @@ namespace margelo::nitro::nitrocompass { enum class AccuracyQuality; }
 namespace margelo::nitro::nitrocompass { struct CompassSample; }
 // Forward declaration of `HybridNitroCompassSpec` to properly resolve imports.
 namespace margelo::nitro::nitrocompass { class HybridNitroCompassSpec; }
+// Forward declaration of `PermissionStatus` to properly resolve imports.
+namespace margelo::nitro::nitrocompass { enum class PermissionStatus; }
 // Forward declaration of `SensorDiagnostics` to properly resolve imports.
 namespace margelo::nitro::nitrocompass { struct SensorDiagnostics; }
 // Forward declaration of `SensorKind` to properly resolve imports.
@@ -27,8 +29,11 @@ namespace NitroCompass { class HybridNitroCompassSpec_cxx; }
 #include "AccuracyQuality.hpp"
 #include "CompassSample.hpp"
 #include "HybridNitroCompassSpec.hpp"
+#include "PermissionStatus.hpp"
 #include "SensorDiagnostics.hpp"
 #include "SensorKind.hpp"
+#include <NitroModules/Promise.hpp>
+#include <NitroModules/PromiseHolder.hpp>
 #include <NitroModules/Result.hpp>
 #include <exception>
 #include <functional>
@@ -137,6 +142,62 @@ namespace margelo::nitro::nitrocompass::bridge::swift {
     return Func_void_bool_Wrapper(std::move(value));
   }
   
+  // pragma MARK: std::shared_ptr<Promise<PermissionStatus>>
+  /**
+   * Specialized version of `std::shared_ptr<Promise<PermissionStatus>>`.
+   */
+  using std__shared_ptr_Promise_PermissionStatus__ = std::shared_ptr<Promise<PermissionStatus>>;
+  inline std::shared_ptr<Promise<PermissionStatus>> create_std__shared_ptr_Promise_PermissionStatus__() noexcept {
+    return Promise<PermissionStatus>::create();
+  }
+  inline PromiseHolder<PermissionStatus> wrap_std__shared_ptr_Promise_PermissionStatus__(std::shared_ptr<Promise<PermissionStatus>> promise) noexcept {
+    return PromiseHolder<PermissionStatus>(std::move(promise));
+  }
+  
+  // pragma MARK: std::function<void(PermissionStatus /* result */)>
+  /**
+   * Specialized version of `std::function<void(PermissionStatus)>`.
+   */
+  using Func_void_PermissionStatus = std::function<void(PermissionStatus /* result */)>;
+  /**
+   * Wrapper class for a `std::function<void(PermissionStatus / * result * /)>`, this can be used from Swift.
+   */
+  class Func_void_PermissionStatus_Wrapper final {
+  public:
+    explicit Func_void_PermissionStatus_Wrapper(std::function<void(PermissionStatus /* result */)>&& func): _function(std::make_unique<std::function<void(PermissionStatus /* result */)>>(std::move(func))) {}
+    inline void call(int result) const noexcept {
+      _function->operator()(static_cast<PermissionStatus>(result));
+    }
+  private:
+    std::unique_ptr<std::function<void(PermissionStatus /* result */)>> _function;
+  } SWIFT_NONCOPYABLE;
+  Func_void_PermissionStatus create_Func_void_PermissionStatus(void* NON_NULL swiftClosureWrapper) noexcept;
+  inline Func_void_PermissionStatus_Wrapper wrap_Func_void_PermissionStatus(Func_void_PermissionStatus value) noexcept {
+    return Func_void_PermissionStatus_Wrapper(std::move(value));
+  }
+  
+  // pragma MARK: std::function<void(const std::exception_ptr& /* error */)>
+  /**
+   * Specialized version of `std::function<void(const std::exception_ptr&)>`.
+   */
+  using Func_void_std__exception_ptr = std::function<void(const std::exception_ptr& /* error */)>;
+  /**
+   * Wrapper class for a `std::function<void(const std::exception_ptr& / * error * /)>`, this can be used from Swift.
+   */
+  class Func_void_std__exception_ptr_Wrapper final {
+  public:
+    explicit Func_void_std__exception_ptr_Wrapper(std::function<void(const std::exception_ptr& /* error */)>&& func): _function(std::make_unique<std::function<void(const std::exception_ptr& /* error */)>>(std::move(func))) {}
+    inline void call(std::exception_ptr error) const noexcept {
+      _function->operator()(error);
+    }
+  private:
+    std::unique_ptr<std::function<void(const std::exception_ptr& /* error */)>> _function;
+  } SWIFT_NONCOPYABLE;
+  Func_void_std__exception_ptr create_Func_void_std__exception_ptr(void* NON_NULL swiftClosureWrapper) noexcept;
+  inline Func_void_std__exception_ptr_Wrapper wrap_Func_void_std__exception_ptr(Func_void_std__exception_ptr value) noexcept {
+    return Func_void_std__exception_ptr_Wrapper(std::move(value));
+  }
+  
   // pragma MARK: std::shared_ptr<HybridNitroCompassSpec>
   /**
    * Specialized version of `std::shared_ptr<HybridNitroCompassSpec>`.
@@ -183,6 +244,24 @@ namespace margelo::nitro::nitrocompass::bridge::swift {
   }
   inline Result_std__optional_CompassSample__ create_Result_std__optional_CompassSample__(const std::exception_ptr& error) noexcept {
     return Result<std::optional<CompassSample>>::withError(error);
+  }
+  
+  // pragma MARK: Result<PermissionStatus>
+  using Result_PermissionStatus_ = Result<PermissionStatus>;
+  inline Result_PermissionStatus_ create_Result_PermissionStatus_(PermissionStatus value) noexcept {
+    return Result<PermissionStatus>::withValue(std::move(value));
+  }
+  inline Result_PermissionStatus_ create_Result_PermissionStatus_(const std::exception_ptr& error) noexcept {
+    return Result<PermissionStatus>::withError(error);
+  }
+  
+  // pragma MARK: Result<std::shared_ptr<Promise<PermissionStatus>>>
+  using Result_std__shared_ptr_Promise_PermissionStatus___ = Result<std::shared_ptr<Promise<PermissionStatus>>>;
+  inline Result_std__shared_ptr_Promise_PermissionStatus___ create_Result_std__shared_ptr_Promise_PermissionStatus___(const std::shared_ptr<Promise<PermissionStatus>>& value) noexcept {
+    return Result<std::shared_ptr<Promise<PermissionStatus>>>::withValue(value);
+  }
+  inline Result_std__shared_ptr_Promise_PermissionStatus___ create_Result_std__shared_ptr_Promise_PermissionStatus___(const std::exception_ptr& error) noexcept {
+    return Result<std::shared_ptr<Promise<PermissionStatus>>>::withError(error);
   }
 
 } // namespace margelo::nitro::nitrocompass::bridge::swift

@@ -2,13 +2,20 @@ import type {
   AccuracyQuality,
   CompassSample,
   NitroCompass as NitroCompassSpec,
+  PermissionStatus,
   SensorDiagnostics,
   SensorKind,
 } from './specs/NitroCompass.nitro'
 
 export { NitroCompass } from './native'
 
-export type { AccuracyQuality, CompassSample, SensorDiagnostics, SensorKind }
+export type {
+  AccuracyQuality,
+  CompassSample,
+  PermissionStatus,
+  SensorDiagnostics,
+  SensorKind,
+}
 export type { NitroCompassSpec as NitroCompassHybridObject }
 
 export {

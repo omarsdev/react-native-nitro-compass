@@ -17,6 +17,7 @@ import type {
   AccuracyQuality,
   CompassSample,
   NitroCompassHybridObject,
+  PermissionStatus,
   SensorDiagnostics,
   SensorKind,
   UseCompassOptions,
@@ -60,6 +61,14 @@ export function _publicSurfaceShape(): {
     return ok
   })
   api.setPauseOnBackground(true)
+
+  const status: PermissionStatus = api.getPermissionStatus()
+  const okStatus: 'granted' | 'denied' | 'unknown' = status
+  void okStatus
+  void api.requestPermission().then((s: PermissionStatus) => {
+    const ok: 'granted' | 'denied' | 'unknown' = s
+    return ok
+  })
 
   // Multi-listener fan-out helpers.
   const offH: () => void = addHeadingListener((s: CompassSample) => {

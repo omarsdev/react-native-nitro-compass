@@ -65,6 +65,8 @@ namespace margelo::nitro::nitrocompass {
     void setOnCalibrationNeeded(const std::function<void(AccuracyQuality /* quality */)>& onChange) override;
     void setOnInterferenceDetected(const std::function<void(bool /* interferenceDetected */)>& onChange) override;
     void setPauseOnBackground(bool enabled) override;
+    PermissionStatus getPermissionStatus() override;
+    std::shared_ptr<Promise<PermissionStatus>> requestPermission() override;
 
   private:
     jni::global_ref<JHybridNitroCompassSpec::JavaPart> _javaPart;

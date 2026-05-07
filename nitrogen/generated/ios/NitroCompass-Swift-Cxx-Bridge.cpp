@@ -38,6 +38,22 @@ namespace margelo::nitro::nitrocompass::bridge::swift {
     };
   }
   
+  // pragma MARK: std::function<void(PermissionStatus /* result */)>
+  Func_void_PermissionStatus create_Func_void_PermissionStatus(void* NON_NULL swiftClosureWrapper) noexcept {
+    auto swiftClosure = NitroCompass::Func_void_PermissionStatus::fromUnsafe(swiftClosureWrapper);
+    return [swiftClosure = std::move(swiftClosure)](PermissionStatus result) mutable -> void {
+      swiftClosure.call(static_cast<int>(result));
+    };
+  }
+  
+  // pragma MARK: std::function<void(const std::exception_ptr& /* error */)>
+  Func_void_std__exception_ptr create_Func_void_std__exception_ptr(void* NON_NULL swiftClosureWrapper) noexcept {
+    auto swiftClosure = NitroCompass::Func_void_std__exception_ptr::fromUnsafe(swiftClosureWrapper);
+    return [swiftClosure = std::move(swiftClosure)](const std::exception_ptr& error) mutable -> void {
+      swiftClosure.call(error);
+    };
+  }
+  
   // pragma MARK: std::shared_ptr<HybridNitroCompassSpec>
   std::shared_ptr<HybridNitroCompassSpec> create_std__shared_ptr_HybridNitroCompassSpec_(void* NON_NULL swiftUnsafePointer) noexcept {
     NitroCompass::HybridNitroCompassSpec_cxx swiftPart = NitroCompass::HybridNitroCompassSpec_cxx::fromUnsafe(swiftUnsafePointer);

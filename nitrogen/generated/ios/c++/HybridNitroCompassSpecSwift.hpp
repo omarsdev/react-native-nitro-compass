@@ -20,6 +20,8 @@ namespace margelo::nitro::nitrocompass { struct SensorDiagnostics; }
 namespace margelo::nitro::nitrocompass { enum class SensorKind; }
 // Forward declaration of `AccuracyQuality` to properly resolve imports.
 namespace margelo::nitro::nitrocompass { enum class AccuracyQuality; }
+// Forward declaration of `PermissionStatus` to properly resolve imports.
+namespace margelo::nitro::nitrocompass { enum class PermissionStatus; }
 
 #include "CompassSample.hpp"
 #include <functional>
@@ -27,6 +29,8 @@ namespace margelo::nitro::nitrocompass { enum class AccuracyQuality; }
 #include <optional>
 #include "SensorKind.hpp"
 #include "AccuracyQuality.hpp"
+#include "PermissionStatus.hpp"
+#include <NitroModules/Promise.hpp>
 
 #include "NitroCompass-Swift-Cxx-Umbrella.hpp"
 
@@ -151,6 +155,22 @@ namespace margelo::nitro::nitrocompass {
       if (__result.hasError()) [[unlikely]] {
         std::rethrow_exception(__result.error());
       }
+    }
+    inline PermissionStatus getPermissionStatus() override {
+      auto __result = _swiftPart.getPermissionStatus();
+      if (__result.hasError()) [[unlikely]] {
+        std::rethrow_exception(__result.error());
+      }
+      auto __value = std::move(__result.value());
+      return __value;
+    }
+    inline std::shared_ptr<Promise<PermissionStatus>> requestPermission() override {
+      auto __result = _swiftPart.requestPermission();
+      if (__result.hasError()) [[unlikely]] {
+        std::rethrow_exception(__result.error());
+      }
+      auto __value = std::move(__result.value());
+      return __value;
     }
 
   private:

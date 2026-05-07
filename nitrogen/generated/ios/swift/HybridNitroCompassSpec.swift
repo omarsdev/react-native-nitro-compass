@@ -24,6 +24,8 @@ public protocol HybridNitroCompassSpec_protocol: HybridObject {
   func setOnCalibrationNeeded(onChange: @escaping (_ quality: AccuracyQuality) -> Void) throws -> Void
   func setOnInterferenceDetected(onChange: @escaping (_ interferenceDetected: Bool) -> Void) throws -> Void
   func setPauseOnBackground(enabled: Bool) throws -> Void
+  func getPermissionStatus() throws -> PermissionStatus
+  func requestPermission() throws -> Promise<PermissionStatus>
 }
 
 public extension HybridNitroCompassSpec_protocol {

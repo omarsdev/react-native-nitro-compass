@@ -51,6 +51,9 @@ class HybridNitroCompass: HybridNitroCompassSpec {
   // notification observers (delivered on main) so JS-thread callers don't
   // have to hop to main to read it.
   private var appIsBackgrounded: Bool = false
+  // Holds an in-flight permission request. CLLocationManager.delegate is
+  // weak, so we own the resolver here for the duration of the request.
+  private var authResolver: AuthRequestResolver?
 
   override init() {
     super.init()
@@ -77,6 +80,19 @@ class HybridNitroCompass: HybridNitroCompassSpec {
         domain: "NitroCompass",
         code: 1,
         userInfo: [NSLocalizedDescriptionKey: "Heading unavailable on this device"]
+      )
+    }
+
+    // CLLocationManager.startUpdatingHeading silently delivers nothing
+    // when location authorization is denied. Surface that explicitly so
+    // callers don't wait on a callback that will never fire.
+    // .notDetermined still proceeds — the host may request later.
+    let authStatus = manager.authorizationStatus
+    if authStatus == .denied || authStatus == .restricted {
+      throw NSError(
+        domain: "NitroCompass",
+        code: 2,
+        userInfo: [NSLocalizedDescriptionKey: "Location authorization denied — request authorization before calling start()"]
       )
     }
 
@@ -121,13 +137,31 @@ class HybridNitroCompass: HybridNitroCompassSpec {
       self?.handleForeground()
     }
 
+    // Read background state synchronously so a start() call from
+    // background correctly skips the initial subscribe under
+    // pauseOnBackground=true. Without this the lifecycle observers
+    // wouldn't fire (we're already in BG) and a useless subscription
+    // would sit there until the next FG↔BG cycle.
+    let backgroundedAtStart: Bool
+    if Thread.isMainThread {
+      backgroundedAtStart = UIApplication.shared.applicationState == .background
+    } else {
+      var bg = false
+      DispatchQueue.main.sync {
+        bg = UIApplication.shared.applicationState == .background
+      }
+      backgroundedAtStart = bg
+    }
+    appIsBackgrounded = backgroundedAtStart
+
     DispatchQueue.main.async { [weak self] in
       UIDevice.current.beginGeneratingDeviceOrientationNotifications()
-      self?.appIsBackgrounded = UIApplication.shared.applicationState == .background
       self?.applyHeadingOrientation()
     }
 
-    subscribe()
+    if !(pauseOnBackground && backgroundedAtStart) {
+      subscribe()
+    }
   }
 
   func stop() throws {
@@ -168,6 +202,10 @@ class HybridNitroCompass: HybridNitroCompassSpec {
 
   func setOnInterferenceDetected(onChange: @escaping (_ interferenceDetected: Bool) -> Void) throws {
     interferenceCb = onChange
+    // Replay current state so a late-registering consumer sees the truth
+    // instead of waiting for the next transition (which may never come
+    // if the field stays stable).
+    if let last = lastInterference { onChange(last) }
   }
 
   func setPauseOnBackground(enabled: Bool) throws {
@@ -176,6 +214,59 @@ class HybridNitroCompass: HybridNitroCompassSpec {
       unsubscribe()
     } else if !enabled, started, !isSubscribed {
       subscribe()
+    }
+  }
+
+  func getPermissionStatus() throws -> PermissionStatus {
+    return Self.mapAuthStatus(manager.authorizationStatus)
+  }
+
+  func requestPermission() throws -> Promise<PermissionStatus> {
+    let current = manager.authorizationStatus
+    if current != .notDetermined {
+      return Promise.resolved(withResult: Self.mapAuthStatus(current))
+    }
+
+    let promise = Promise<PermissionStatus>()
+
+    DispatchQueue.main.async { [weak self] in
+      guard let self = self else {
+        promise.reject(withError: NSError(
+          domain: "NitroCompass",
+          code: 4,
+          userInfo: [NSLocalizedDescriptionKey: "Compass instance was deallocated"]
+        ))
+        return
+      }
+
+      // Cancel any in-flight request — only one outstanding system
+      // prompt makes sense.
+      self.authResolver?.cancel()
+
+      let resolver = AuthRequestResolver(promise: promise)
+      // Save the existing delegate so heading delivery can resume after
+      // the auth callback fires. CLLocationManager.delegate is weak, so
+      // we have to keep our resolver alive on `self` for the duration.
+      resolver.savedDelegate = self.manager.delegate
+      resolver.onResolved = { [weak self] in self?.authResolver = nil }
+      self.authResolver = resolver
+      self.manager.delegate = resolver
+      self.manager.requestWhenInUseAuthorization()
+    }
+
+    return promise
+  }
+
+  private static func mapAuthStatus(_ status: CLAuthorizationStatus) -> PermissionStatus {
+    switch status {
+    case .authorizedAlways, .authorizedWhenInUse:
+      return .granted
+    case .denied, .restricted:
+      return .denied
+    case .notDetermined:
+      return .unknown
+    @unknown default:
+      return .unknown
     }
   }
 
@@ -311,6 +402,48 @@ class HybridNitroCompass: HybridNitroCompassSpec {
       clOrientation = .portrait
     }
     manager.headingOrientation = clOrientation
+  }
+}
+
+/// One-shot delegate that drives a `requestPermission()` call. It owns
+/// the `Promise` until the system delivers the user's choice via
+/// `locationManagerDidChangeAuthorization`, then restores the prior
+/// delegate so heading delivery resumes if a subscription was active.
+private class AuthRequestResolver: NSObject, CLLocationManagerDelegate {
+  private let promise: Promise<PermissionStatus>
+  weak var savedDelegate: CLLocationManagerDelegate?
+  var onResolved: (() -> Void)?
+  private var resolved = false
+
+  init(promise: Promise<PermissionStatus>) {
+    self.promise = promise
+  }
+
+  func cancel() {
+    guard !resolved else { return }
+    resolved = true
+    promise.reject(withError: NSError(
+      domain: "NitroCompass",
+      code: 3,
+      userInfo: [NSLocalizedDescriptionKey: "Permission request superseded"]
+    ))
+    onResolved?()
+  }
+
+  func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+    let status = manager.authorizationStatus
+    if status == .notDetermined { return }
+    if resolved { return }
+    resolved = true
+    manager.delegate = savedDelegate
+    let mapped: PermissionStatus
+    switch status {
+    case .authorizedAlways, .authorizedWhenInUse: mapped = .granted
+    case .denied, .restricted: mapped = .denied
+    default: mapped = .unknown
+    }
+    promise.resolve(withResult: mapped)
+    onResolved?()
   }
 }
 

@@ -13,6 +13,8 @@ namespace margelo::nitro::nitrocompass { struct SensorDiagnostics; }
 namespace margelo::nitro::nitrocompass { enum class SensorKind; }
 // Forward declaration of `CompassSample` to properly resolve imports.
 namespace margelo::nitro::nitrocompass { struct CompassSample; }
+// Forward declaration of `PermissionStatus` to properly resolve imports.
+namespace margelo::nitro::nitrocompass { enum class PermissionStatus; }
 // Forward declaration of `AccuracyQuality` to properly resolve imports.
 namespace margelo::nitro::nitrocompass { enum class AccuracyQuality; }
 
@@ -23,6 +25,10 @@ namespace margelo::nitro::nitrocompass { enum class AccuracyQuality; }
 #include "JSensorKind.hpp"
 #include "CompassSample.hpp"
 #include "JCompassSample.hpp"
+#include "PermissionStatus.hpp"
+#include "JPermissionStatus.hpp"
+#include <NitroModules/Promise.hpp>
+#include <NitroModules/JPromise.hpp>
 #include <functional>
 #include "JFunc_void_CompassSample.hpp"
 #include <NitroModules/JNICallable.hpp>
@@ -111,6 +117,27 @@ namespace margelo::nitro::nitrocompass {
   void JHybridNitroCompassSpec::setPauseOnBackground(bool enabled) {
     static const auto method = _javaPart->javaClassStatic()->getMethod<void(jboolean /* enabled */)>("setPauseOnBackground");
     method(_javaPart, enabled);
+  }
+  PermissionStatus JHybridNitroCompassSpec::getPermissionStatus() {
+    static const auto method = _javaPart->javaClassStatic()->getMethod<jni::local_ref<JPermissionStatus>()>("getPermissionStatus");
+    auto __result = method(_javaPart);
+    return __result->toCpp();
+  }
+  std::shared_ptr<Promise<PermissionStatus>> JHybridNitroCompassSpec::requestPermission() {
+    static const auto method = _javaPart->javaClassStatic()->getMethod<jni::local_ref<JPromise::javaobject>()>("requestPermission");
+    auto __result = method(_javaPart);
+    return [&]() {
+      auto __promise = Promise<PermissionStatus>::create();
+      __result->cthis()->addOnResolvedListener([=](const jni::alias_ref<jni::JObject>& __boxedResult) {
+        auto __result = jni::static_ref_cast<JPermissionStatus>(__boxedResult);
+        __promise->resolve(__result->toCpp());
+      });
+      __result->cthis()->addOnRejectedListener([=](const jni::alias_ref<jni::JThrowable>& __throwable) {
+        jni::JniException __jniError(__throwable);
+        __promise->reject(std::make_exception_ptr(__jniError));
+      });
+      return __promise;
+    }();
   }
 
 } // namespace margelo::nitro::nitrocompass

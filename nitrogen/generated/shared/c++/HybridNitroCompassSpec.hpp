@@ -19,12 +19,16 @@ namespace margelo::nitro::nitrocompass { struct CompassSample; }
 namespace margelo::nitro::nitrocompass { struct SensorDiagnostics; }
 // Forward declaration of `AccuracyQuality` to properly resolve imports.
 namespace margelo::nitro::nitrocompass { enum class AccuracyQuality; }
+// Forward declaration of `PermissionStatus` to properly resolve imports.
+namespace margelo::nitro::nitrocompass { enum class PermissionStatus; }
 
 #include "CompassSample.hpp"
 #include <functional>
 #include "SensorDiagnostics.hpp"
 #include <optional>
 #include "AccuracyQuality.hpp"
+#include "PermissionStatus.hpp"
+#include <NitroModules/Promise.hpp>
 
 namespace margelo::nitro::nitrocompass {
 
@@ -68,6 +72,8 @@ namespace margelo::nitro::nitrocompass {
       virtual void setOnCalibrationNeeded(const std::function<void(AccuracyQuality /* quality */)>& onChange) = 0;
       virtual void setOnInterferenceDetected(const std::function<void(bool /* interferenceDetected */)>& onChange) = 0;
       virtual void setPauseOnBackground(bool enabled) = 0;
+      virtual PermissionStatus getPermissionStatus() = 0;
+      virtual std::shared_ptr<Promise<PermissionStatus>> requestPermission() = 0;
 
     protected:
       // Hybrid Setup
