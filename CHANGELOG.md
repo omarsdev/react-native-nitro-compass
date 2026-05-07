@@ -1,3 +1,15 @@
+## [1.2.0](https://github.com/omarsdev/react-native-nitro-compass/compare/v1.1.0...v1.2.0) (2026-05-07)
+
+### ✨ Features
+
+* **android:** raw-sensor heading with gyro fusion, bias-jump interference, debug API ([7a4042e](https://github.com/omarsdev/react-native-nitro-compass/commit/7a4042e6ba604c9b058078b9eac96c9ad71d3971))
+* **example:** wire setLocation to react-native-geolocation-service ([3e1770f](https://github.com/omarsdev/react-native-nitro-compass/commit/3e1770fc2396c192d9c8fde90528f87b3e84fc98))
+* **hook:** expose recalibrate, setLocation, permission, getCurrentHeading ([937e2f0](https://github.com/omarsdev/react-native-nitro-compass/commit/937e2f0efef526a880cfedb6f039fdf748424587))
+
+### 🐛 Bug Fixes
+
+* **compass:** production-readiness fixes from cross-platform audit ([78a1511](https://github.com/omarsdev/react-native-nitro-compass/commit/78a15116a8df4ec4b00208006a03ed4206bae548))
+
 ## [1.1.0](https://github.com/omarsdev/react-native-nitro-compass/compare/v1.0.9...v1.1.0) (2026-05-07)
 
 ### ✨ Features
