@@ -1,3 +1,13 @@
+## [1.2.2](https://github.com/omarsdev/react-native-nitro-compass/compare/v1.2.1...v1.2.2) (2026-05-07)
+
+### 🛠️ Other changes
+
+* **deps-dev:** bump eslint from 8.57.1 to 10.3.0 in /example ([#20](https://github.com/omarsdev/react-native-nitro-compass/issues/20)) ([1e21131](https://github.com/omarsdev/react-native-nitro-compass/commit/1e211313ddd3223c16b49bb0deee9dd0bbd2ca0d))
+* **deps-dev:** bump prettier from 2.8.8 to 3.8.3 in /example ([#19](https://github.com/omarsdev/react-native-nitro-compass/issues/19)) ([ada6b9b](https://github.com/omarsdev/react-native-nitro-compass/commit/ada6b9bee1ca77aff722cf0d9b48db8079c2e9b6))
+* **deps-dev:** bump react and @types/react ([#16](https://github.com/omarsdev/react-native-nitro-compass/issues/16)) ([3f32ed4](https://github.com/omarsdev/react-native-nitro-compass/commit/3f32ed4f1d8861f40501d2345f7c0e2c3f34f926))
+* **deps:** bump actions/checkout from 4 to 6 ([#14](https://github.com/omarsdev/react-native-nitro-compass/issues/14)) ([f4d2a54](https://github.com/omarsdev/react-native-nitro-compass/commit/f4d2a545ac86da4dfbf1e730f13a998146c066e2))
+* **deps:** bump com.android.tools.build:gradle in /android ([#13](https://github.com/omarsdev/react-native-nitro-compass/issues/13)) ([4300b9f](https://github.com/omarsdev/react-native-nitro-compass/commit/4300b9fa9deebc59b96586e9588d8dc82273900b))
+
 ## [1.2.1](https://github.com/omarsdev/react-native-nitro-compass/compare/v1.2.0...v1.2.1) (2026-05-07)
 
 ### 📚 Documentation
