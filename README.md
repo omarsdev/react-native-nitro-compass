@@ -136,6 +136,7 @@ function CompassView() {
     filterDegrees: 1,
     declination: 0,
     pauseOnBackground: true,
+    enabled: true,
   })
 
   if (!hasCompass) return <Text>No compass on this device.</Text>
@@ -151,9 +152,61 @@ function CompassView() {
 }
 ```
 
-`filterDegrees`, `declination`, and `pauseOnBackground` are global state on `NitroCompass` — multiple hooks setting them are last-write-wins. Pass `enabled: false` to pause a hook's heading subscription without unmounting (calibration / interference observation continues).
+```ts
+function useCompass(options?: UseCompassOptions): UseCompassResult
+```
+
+#### Options
+
+| Option | Type | Default | Description |
+| --- | --- | --- | --- |
+| `filterDegrees` | `number` | `1` | Minimum change between successive samples in degrees. Pass `0` for "every event". Updated live via `NitroCompass.setFilter()` whenever the prop changes. |
+| `declination` | `number` | `0` | Magnetic-to-true offset in signed degrees. Pull from a model like [`geomagnetism`](https://github.com/kahirokunn/geomagnetism) keyed on the user's lat/lon. When non-zero, every emitted sample is true-north. |
+| `pauseOnBackground` | `boolean` | `true` | Pause the underlying sensor / location-manager subscription while the app is backgrounded and resume on foreground. |
+| `enabled` | `boolean` | `true` | Toggle the heading subscription without unmounting. When `false`, `reading` stops updating but calibration and interference observation continue (so you can still show warnings). |
+
+`filterDegrees`, `declination`, and `pauseOnBackground` map to global state on `NitroCompass` — if multiple hooks set them, last-write-wins.
+
+#### Result
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `reading` | `CompassSample \| null` | Latest emitted sample (`{ heading, accuracy }`), or `null` until the first arrives. Heading is true-north when `declination` is set, magnetic otherwise. |
+| `quality` | `AccuracyQuality \| null` | Coarse calibration bucket — `'high'`, `'medium'`, `'low'`, or `'unreliable'`. `null` until the first transition. Show your own calibration UI on `'unreliable'`. |
+| `interfering` | `boolean` | `true` while the raw magnetic field magnitude is outside the normal Earth band (~20–70 µT) — laptops, monitors, car engines, steel structures. |
+| `hasCompass` | `boolean` | Hardware availability — read once on first render. Render a fallback when `false`. |
+| `diagnostics` | `SensorDiagnostics \| undefined` | Which sensor backs the readings on this device (`rotationVector`, `geomagneticRotationVector`, or `coreLocation`). Useful for explaining quality differences. |
 
 For non-React state managers, lower-level `addHeadingListener(cb): () => void`, `addCalibrationListener(cb): () => void`, and `addInterferenceListener(cb): () => void` are also exported. They are reference-counted: the first heading listener calls `start()`, the last unsubscribe calls `stop()`. Mixing these helpers with direct `NitroCompass.start()` / `setOnCalibrationNeeded()` / `setOnInterferenceDetected()` will clobber the multiplex's internal callback slot — pick one path.
+
+### Smooth dial animation (Reanimated)
+
+`useCompass()` returns React state, so each sample re-renders the consumer — fine for a numeric readout, but a rotating dial driven that way will jitter on faster filter values. For 60 fps animations, subscribe with `addHeadingListener` and write directly into a Reanimated shared value on the UI thread:
+
+```tsx
+import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated'
+import { addHeadingListener } from 'react-native-nitro-compass'
+
+function Dial() {
+  const angle = useSharedValue(0)
+  const last = useRef(0)
+
+  useEffect(() => addHeadingListener(({ heading }) => {
+    // unwrap so 359° → 1° animates +2°, not -358°
+    const wrapped = ((last.current % 360) + 360) % 360
+    let delta = heading - wrapped
+    if (delta > 180) delta -= 360
+    else if (delta < -180) delta += 360
+    last.current += delta
+    angle.value = withTiming(last.current, { duration: 80, easing: Easing.out(Easing.quad) })
+  }), [angle])
+
+  const style = useAnimatedStyle(() => ({ transform: [{ rotate: `${-angle.value}deg` }] }))
+  return <Animated.View style={[styles.dial, style]}>{/* ticks */}</Animated.View>
+}
+```
+
+The same pattern is used in [example/components/Compass.tsx](./example/components/Compass.tsx).
 
 ## Permissions
 
@@ -162,7 +215,7 @@ For non-React state managers, lower-level `addHeadingListener(cb): () => void`, 
 
 ## Example app
 
-A bare React Native CLI app under [example/](./example) (RN 0.84.1, New Arch enabled) consumes the library via a local symlink. Use it to test changes on a real device — the iOS Simulator has no compass and the Android emulator's magnetometer is faked.
+A bare React Native CLI app under [example/](./example) (RN 0.85.3, New Arch enabled) consumes the library via a local symlink. It demos the full surface — `useCompass()` for the readout, calibration / interference banners, and a Reanimated-driven dial that subscribes via `addHeadingListener` so the rotation runs entirely on the UI thread. Use it to test changes on a real device — the iOS Simulator has no compass and the Android emulator's magnetometer is faked.
 
 First-time setup:
 
