@@ -1,3 +1,9 @@
+## [1.2.1](https://github.com/omarsdev/react-native-nitro-compass/compare/v1.2.0...v1.2.1) (2026-05-07)
+
+### 📚 Documentation
+
+* **readme:** redesign for top-tier RN library structure ([c052bcb](https://github.com/omarsdev/react-native-nitro-compass/commit/c052bcba0470e322df5754171b78bced12c4f360))
+
 ## [1.2.0](https://github.com/omarsdev/react-native-nitro-compass/compare/v1.1.0...v1.2.0) (2026-05-07)
 
 ### ✨ Features
