@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type {
   AccuracyQuality,
   CompassSample,
+  PermissionStatus,
   SensorDiagnostics,
 } from './specs/NitroCompass.nitro'
 import { NitroCompass } from './native'
@@ -60,6 +61,44 @@ export interface UseCompassResult {
   hasCompass: boolean
   /** Which sensor backs the readings on this device. */
   diagnostics: SensorDiagnostics | undefined
+  /**
+   * Latest platform permission status. Always `'granted'` on Android.
+   * On iOS may transition from `'unknown'` → `'granted'`/`'denied'`
+   * after `requestPermission()` resolves.
+   */
+  permission: PermissionStatus
+  /**
+   * Synchronous read of the most recent emitted sample (with declination
+   * already applied), or `undefined` if not started yet or no sample
+   * has arrived. Useful inside event handlers without re-rendering.
+   */
+  getCurrentHeading: () => CompassSample | undefined
+  /**
+   * Force a best-effort sensor recalibration. On Android this re-registers
+   * the sensor listeners (often nudges the magnetometer driver to
+   * re-evaluate calibration); on iOS it dismisses the heading-calibration
+   * overlay and stop/restarts heading updates.
+   */
+  recalibrate: () => void
+  /**
+   * Set the user's geographic location for a tighter interference gate.
+   * Android uses the WMM2025 model bundled in `GeomagneticField` to
+   * derive the expected field strength at the location; iOS is a no-op
+   * because `CLLocationManager` already uses GPS-derived location
+   * internally for all field-related reasoning. Pass `NaN` or
+   * out-of-range values to revert to the generic 20–70 µT band.
+   */
+  setLocation: (latitude: number, longitude: number) => void
+  /**
+   * Request the platform permission required to deliver headings.
+   * Android resolves immediately with `'granted'`. On iOS this prompts
+   * the system "Allow location" dialog if the status is `'unknown'`,
+   * resolving once the user makes a choice; subsequent calls resolve
+   * immediately with the cached status (iOS does not re-prompt). The
+   * hook's `permission` field updates automatically when the promise
+   * resolves.
+   */
+  requestPermission: () => Promise<PermissionStatus>
 }
 
 /**
@@ -100,6 +139,13 @@ export function useCompass(
       return NitroCompass.getDiagnostics()
     } catch {
       return undefined
+    }
+  })
+  const [permission, setPermission] = useState<PermissionStatus>(() => {
+    try {
+      return NitroCompass.getPermissionStatus()
+    } catch {
+      return 'unknown'
     }
   })
 
@@ -168,5 +214,54 @@ export function useCompass(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasCompass, enabled])
 
-  return { reading, quality, interfering, hasCompass, diagnostics }
+  // Stable callbacks so consumers' useEffect deps don't churn on every
+  // render. All four are thin wrappers around NitroCompass; the hook's
+  // own state isn't reactive to recalibrate/setLocation since neither
+  // changes any field returned here.
+  const getCurrentHeading = useCallback(() => {
+    try {
+      return NitroCompass.getCurrentHeading()
+    } catch {
+      return undefined
+    }
+  }, [])
+
+  const recalibrate = useCallback(() => {
+    try {
+      NitroCompass.recalibrate()
+    } catch {
+      // Native missing — nothing to do.
+    }
+  }, [])
+
+  const setLocation = useCallback((latitude: number, longitude: number) => {
+    try {
+      NitroCompass.setLocation(latitude, longitude)
+    } catch {
+      // Native missing — silently ignored.
+    }
+  }, [])
+
+  const requestPermission = useCallback(async (): Promise<PermissionStatus> => {
+    try {
+      const status = await NitroCompass.requestPermission()
+      setPermission(status)
+      return status
+    } catch {
+      return 'denied'
+    }
+  }, [])
+
+  return {
+    reading,
+    quality,
+    interfering,
+    hasCompass,
+    diagnostics,
+    permission,
+    getCurrentHeading,
+    recalibrate,
+    setLocation,
+    requestPermission,
+  }
 }

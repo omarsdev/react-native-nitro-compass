@@ -2,13 +2,13 @@
 
 Fast, accurate compass heading for React Native, powered by [Nitro Modules](https://github.com/mrousavy/nitro).
 
-- **Android**: raw `TYPE_MAGNETIC_FIELD` + `TYPE_ACCELEROMETER` fed through `SensorManager.getRotationMatrix()` + `getOrientation()`. This path is **stateless** — when a magnet or laptop is removed, the very next sample produces the correct heading instead of waiting for OS-level fusion to re-converge. Sensor delivery on a dedicated `HandlerThread` — never blocks the UI thread.
-- **iOS**: `CLLocationManager` heading via `CLHeading.magneticHeading`. Apple's stack already handles sensor fusion natively.
-- **JS API**: type-safe Nitro callbacks — no `NativeEventEmitter`, no string event names.
+- **Android**: raw `TYPE_MAGNETIC_FIELD_UNCALIBRATED` + `TYPE_ACCELEROMETER` fed through `SensorManager.getRotationMatrix()` + `getOrientation()`, with a `TYPE_GAME_ROTATION_VECTOR` complementary filter on top for steady-state smoothness. This path is **stateless** — when a magnet or laptop is removed, the very next sample produces the correct heading instead of waiting for OS-level fusion to re-converge. We also detect OS hard-iron-bias jumps as a separate interference signal, so weak magnet events that don't push field magnitude out-of-band still register. Sensor delivery on a dedicated `HandlerThread` — never blocks the UI thread.
+- **iOS**: `CLLocationManager` heading via `CLHeading.magneticHeading` for direction; `CMDeviceMotion.magneticField` (calibrated) for field strength + interference detection. Apple's stack handles sensor fusion natively.
+- **JS API**: type-safe Nitro callbacks — no `NativeEventEmitter`, no string event names. Optional `useCompass()` React hook bundles subscription lifecycle, calibration / interference observation, and live-tuneable knobs into one ergonomic call.
 
 ## Why
 
-Most React Native compass libraries use Android's `TYPE_ROTATION_VECTOR`, which feels great until you put a magnet, a phone, or a laptop next to the device — then the OS-level Kalman filter holds a poisoned bias estimate for many seconds after the source is removed. This library computes heading directly from raw `accelerometer + magnetometer` via `getRotationMatrix()` (the same approach used by popular consumer compass apps), so recovery from interference is instant. We trade a few degrees of steady-state jitter for stateless behaviour, then add back smoothness via a tunable EMA on `(sin θ, cos θ)` (`setSmoothing()`).
+Most React Native compass libraries use Android's `TYPE_ROTATION_VECTOR`, which feels great until you put a magnet, a phone, or a laptop next to the device — then the OS-level Kalman filter holds a poisoned bias estimate for many seconds after the source is removed. This library computes heading directly from raw `accelerometer + magnetometer` via `getRotationMatrix()` (the same approach used by popular consumer compass apps), so recovery from interference is instant. We trade a few degrees of steady-state jitter for stateless behaviour, then add back smoothness via two layers: an adaptive input-side low-pass on the accel and mag vectors, plus a `TYPE_GAME_ROTATION_VECTOR` (gyro+accel) complementary filter that integrates Δyaw between events and lets mag samples pull it back to absolute. The end result tracks fast turns without lag, ignores transient magnet events, and snaps back instantly when interference clears.
 
 ## Requirements
 
@@ -53,25 +53,45 @@ NitroCompass.hasCompass(): boolean
 
 NitroCompass.setFilter(degrees: number): void
 NitroCompass.setSmoothing(alpha: number): void
-NitroCompass.getCurrentHeading(): CompassSample | undefined
-NitroCompass.getDiagnostics(): SensorDiagnostics | undefined
 NitroCompass.setDeclination(degrees: number): void
-NitroCompass.setOnCalibrationNeeded(onChange: (quality: AccuracyQuality) => void): void
-NitroCompass.setOnInterferenceDetected(onChange: (interferenceDetected: boolean) => void): void
+NitroCompass.setLocation(latitude: number, longitude: number): void
 NitroCompass.setPauseOnBackground(enabled: boolean): void
 
+NitroCompass.getCurrentHeading(): CompassSample | undefined
+NitroCompass.getDiagnostics(): SensorDiagnostics | undefined
+NitroCompass.getDebugInfo(): DebugInfo
+
+NitroCompass.setOnCalibrationNeeded(onChange: (quality: AccuracyQuality) => void): void
+NitroCompass.setOnInterferenceDetected(onChange: (interferenceDetected: boolean) => void): void
+
+NitroCompass.recalibrate(): void
+NitroCompass.getPermissionStatus(): PermissionStatus
+NitroCompass.requestPermission(): Promise<PermissionStatus>
+
 interface CompassSample {
-  heading: number   // degrees, [0, 360); magnetic by default, true-north if setDeclination was called
-  accuracy: number  // degrees, smaller is better; -1 if unknown
+  heading: number                  // degrees, [0, 360); magnetic by default, true-north if setDeclination was called
+  accuracy: number                 // degrees, smaller is better; -1 if unknown
+  fieldStrengthMicroTesla: number  // µT magnitude of the local magnetic field; -1 until first reading
 }
 
 type AccuracyQuality = 'high' | 'medium' | 'low' | 'unreliable'
+type PermissionStatus = 'granted' | 'denied' | 'unknown'
 type SensorKind =
   | 'magnetometer'
   | 'coreLocation'
   | 'rotationVector' // legacy, no longer returned
   | 'geomagneticRotationVector' // legacy, no longer returned
 interface SensorDiagnostics { sensor: SensorKind }
+interface DebugInfo {
+  interferenceActive: boolean
+  msSinceLastBiasJump: number       // -1 if never seen / iOS
+  expectedFieldMicroTesla: number   // -1 if setLocation not called
+  lastFieldMicroTesla: number       // -1 if no reading
+  fusedYawDeg: number               // NaN before first sample / iOS
+  lastYawRateDegPerS: number        // 0 if game-RV unavailable
+  hasGameRotationVector: boolean    // false on iOS
+  usingUncalibratedMag: boolean     // false on iOS
+}
 ```
 
 - `filterDegrees` — minimum change between successive samples before the next one is delivered. Pass `0` for "every event"; typical UI values are `1`–`3`. Use `setFilter()` to change live without tearing down the subscription.
@@ -81,6 +101,10 @@ interface SensorDiagnostics { sensor: SensorKind }
 - `accuracy` is a numeric uncertainty (degrees). On iOS it comes from `CLHeading.headingAccuracy` directly. On Android it's a coarse degree estimate derived from the magnetometer's `SensorManager.SENSOR_STATUS_*` accuracy bucket — Android's figure-8 calibration signal — mapped to `HIGH→5°`, `MEDIUM→15°`, `LOW→30°`.
 - `fieldStrengthMicroTesla` is the magnitude of the local magnetic field in µT, or `-1` until the first reading lands. Earth's field is normally 25–65 µT — values well outside this band signal external interference (laptops, monitors, magnets, ferrous metal). Useful for rendering a field-strength meter à la consumer compass apps.
 - `getCurrentHeading()` returns the most recently emitted sample (with declination already applied), or `undefined` if not started yet or no sample has arrived.
+- `setLocation(lat, lon)` lets the library tighten the interference detection band on Android. With a valid location, the generic 20–70 µT "Earth field" band is replaced by `expectedField ± 15 µT`, where `expectedField` comes from the WMM2025 model bundled in `GeomagneticField`. This catches weak interference at high/low latitudes where Earth's natural field is near or above 60 µT. Pass `NaN` or out-of-range values to revert to the generic band. **No-op on iOS** — `CLLocationManager` already uses GPS-derived location internally.
+- `recalibrate()` is a manual nudge for stuck calibration state. On Android it re-registers the sensor listeners (often nudges the magnetometer driver to re-evaluate soft/hard-iron calibration); on iOS it dismisses the system heading-calibration overlay and stops/restarts heading updates. Idempotent; safe to call before `start()`. The user still has to move the device through varying orientations — this just clears cached state so progress is reflected promptly. Useful behind a "Refresh" button in your calibration UI.
+- `getDebugInfo()` returns a live snapshot of internal pipeline state. Intended for diagnosing user-reported issues — not needed for normal operation. The bundled `<DebugPanel />` in [example/components/DebugPanel.tsx](./example/components/DebugPanel.tsx) polls it at 4 Hz behind a collapsible footer; copy/adapt it into your debug build to make user bug reports self-diagnosing. Most fields are Android-only — see the inline JSDoc on the `DebugInfo` interface.
+- `getPermissionStatus()` / `requestPermission()` map to platform location permission. Always `'granted'` on Android (sensors require no permission). On iOS, `getPermissionStatus()` reads `CLLocationManager.authorizationStatus`; `requestPermission()` prompts the system "Allow location" dialog if status is `'unknown'` and resolves once the user makes a choice. iOS does not re-prompt — subsequent calls resolve immediately with the cached status.
 
 ### Calibration
 
@@ -110,7 +134,11 @@ NitroCompass.setOnInterferenceDetected((interfering) => {
 })
 ```
 
-Android uses `Sensor.TYPE_MAGNETIC_FIELD` at ~5 Hz. iOS uses `CMDeviceMotion.magneticField` (calibrated, with the device's own hard-iron bias subtracted in real time) — note that no transitions are reported on iOS until CoreMotion's bias estimate converges, typically a second or two of normal device movement. Only triggered while `start()` is active; no debounce, so brief excursions still fire.
+Detection on **Android** combines two signals: (1) the raw magnetic field magnitude leaving the Earth band, and (2) recent OS hard-iron-bias jumps on `TYPE_MAGNETIC_FIELD_UNCALIBRATED`. The bias-jump signal catches *weak* interference events the magnitude check alone would miss — e.g. another phone placed on top of yours, where the corrected field magnitude stays near 50 µT but the OS still revises its bias estimate. Either signal flips `interfering` to `true`; both must clear (and a 1.5 s grace window expire) before `false` is reported. If you call `setLocation(lat, lon)`, the magnitude band tightens to `expectedField ± 15 µT` for a more sensitive gate at high or low latitudes.
+
+On **iOS**, detection uses `CMDeviceMotion.magneticField` (calibrated, with the device's own hard-iron bias subtracted in real time). Transitions wait for CoreMotion's bias estimate to converge (5 consecutive non-`uncalibrated` samples — typically a second or two of normal device movement after subscribe) so the first second post-`start()` doesn't fire false positives.
+
+Only triggered while `start()` is active; no debounce, so brief excursions still fire.
 
 ### Magnetic vs true north
 
@@ -201,11 +229,16 @@ function useCompass(options?: UseCompassOptions): UseCompassResult
 
 | Field | Type | Description |
 | --- | --- | --- |
-| `reading` | `CompassSample \| null` | Latest emitted sample (`{ heading, accuracy }`), or `null` until the first arrives. Heading is true-north when `declination` is set, magnetic otherwise. |
+| `reading` | `CompassSample \| null` | Latest emitted sample (`{ heading, accuracy, fieldStrengthMicroTesla }`), or `null` until the first arrives. Heading is true-north when `declination` is set, magnetic otherwise. |
 | `quality` | `AccuracyQuality \| null` | Coarse calibration bucket — `'high'`, `'medium'`, `'low'`, or `'unreliable'`. `null` until the first transition. Show your own calibration UI on `'unreliable'`. |
-| `interfering` | `boolean` | `true` while the raw magnetic field magnitude is outside the normal Earth band (~20–70 µT) — laptops, monitors, car engines, steel structures. |
+| `interfering` | `boolean` | `true` while external magnetic interference is detected (field-magnitude band check + Android bias-jump grace). See [Magnetic interference](#magnetic-interference). |
 | `hasCompass` | `boolean` | Hardware availability — read once on first render. Render a fallback when `false`. |
 | `diagnostics` | `SensorDiagnostics \| undefined` | Which sensor backs the readings on this device (`magnetometer` on Android, `coreLocation` on iOS). Useful for explaining quality differences. |
+| `permission` | `PermissionStatus` | Latest platform permission state. Always `'granted'` on Android. On iOS may transition `'unknown'` → `'granted'`/`'denied'` after `requestPermission()` resolves. |
+| `getCurrentHeading` | `() => CompassSample \| undefined` | Synchronous read of the most recent sample. Stable identity across renders. Useful inside event handlers without forcing a re-render. |
+| `recalibrate` | `() => void` | Force a best-effort sensor recalibration (Refresh button behind a calibration banner). Stable identity. See [`NitroCompass.recalibrate()`](#api). |
+| `setLocation` | `(lat: number, lon: number) => void` | Tighten the interference gate using `expectedField ± 15 µT` (Android only). No-op on iOS. Stable identity. |
+| `requestPermission` | `() => Promise<PermissionStatus>` | Prompt the platform permission dialog (iOS) and update the hook's `permission` field. Resolves with the resulting status. Stable identity. |
 
 For non-React state managers, lower-level `addHeadingListener(cb): () => void`, `addCalibrationListener(cb): () => void`, and `addInterferenceListener(cb): () => void` are also exported. They are reference-counted: the first heading listener calls `start()`, the last unsubscribe calls `stop()`. Mixing these helpers with direct `NitroCompass.start()` / `setOnCalibrationNeeded()` / `setOnInterferenceDetected()` will clobber the multiplex's internal callback slot — pick one path.
 
