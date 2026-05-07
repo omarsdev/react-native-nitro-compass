@@ -47,6 +47,10 @@ export function _publicSurfaceShape(): {
     const ok: 'high' | 'medium' | 'low' | 'unreliable' = quality
     return ok
   })
+  api.setOnInterferenceDetected((interferenceDetected: boolean) => {
+    const ok: boolean = interferenceDetected
+    return ok
+  })
   api.setPauseOnBackground(true)
 
   return { has, started, current, diagnostics }

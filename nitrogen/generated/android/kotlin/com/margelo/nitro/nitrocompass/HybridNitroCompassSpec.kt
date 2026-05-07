@@ -74,6 +74,15 @@ abstract class HybridNitroCompassSpec: HybridObject() {
     return __result
   }
   
+  abstract fun setOnInterferenceDetected(onChange: (interferenceDetected: Boolean) -> Unit): Unit
+  
+  @DoNotStrip
+  @Keep
+  private fun setOnInterferenceDetected_cxx(onChange: Func_void_bool): Unit {
+    val __result = setOnInterferenceDetected(onChange)
+    return __result
+  }
+  
   @DoNotStrip
   @Keep
   abstract fun setPauseOnBackground(enabled: Boolean): Unit

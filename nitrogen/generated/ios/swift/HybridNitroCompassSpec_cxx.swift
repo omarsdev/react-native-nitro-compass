@@ -250,6 +250,22 @@ open class HybridNitroCompassSpec_cxx {
   }
   
   @inline(__always)
+  public final func setOnInterferenceDetected(onChange: bridge.Func_void_bool) -> bridge.Result_void_ {
+    do {
+      try self.__implementation.setOnInterferenceDetected(onChange: { () -> (Bool) -> Void in
+        let __wrappedFunction = bridge.wrap_Func_void_bool(onChange)
+        return { (__interferenceDetected: Bool) -> Void in
+          __wrappedFunction.call(__interferenceDetected)
+        }
+      }())
+      return bridge.create_Result_void_()
+    } catch (let __error) {
+      let __exceptionPtr = __error.toCpp()
+      return bridge.create_Result_void_(__exceptionPtr)
+    }
+  }
+  
+  @inline(__always)
   public final func setPauseOnBackground(enabled: Bool) -> bridge.Result_void_ {
     do {
       try self.__implementation.setPauseOnBackground(enabled: enabled)

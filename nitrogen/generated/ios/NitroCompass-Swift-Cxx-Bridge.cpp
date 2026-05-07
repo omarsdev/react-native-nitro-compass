@@ -30,6 +30,14 @@ namespace margelo::nitro::nitrocompass::bridge::swift {
     };
   }
   
+  // pragma MARK: std::function<void(bool /* interferenceDetected */)>
+  Func_void_bool create_Func_void_bool(void* NON_NULL swiftClosureWrapper) noexcept {
+    auto swiftClosure = NitroCompass::Func_void_bool::fromUnsafe(swiftClosureWrapper);
+    return [swiftClosure = std::move(swiftClosure)](bool interferenceDetected) mutable -> void {
+      swiftClosure.call(interferenceDetected);
+    };
+  }
+  
   // pragma MARK: std::shared_ptr<HybridNitroCompassSpec>
   std::shared_ptr<HybridNitroCompassSpec> create_std__shared_ptr_HybridNitroCompassSpec_(void* NON_NULL swiftUnsafePointer) noexcept {
     NitroCompass::HybridNitroCompassSpec_cxx swiftPart = NitroCompass::HybridNitroCompassSpec_cxx::fromUnsafe(swiftUnsafePointer);

@@ -115,6 +115,28 @@ namespace margelo::nitro::nitrocompass::bridge::swift {
     return Func_void_AccuracyQuality_Wrapper(std::move(value));
   }
   
+  // pragma MARK: std::function<void(bool /* interferenceDetected */)>
+  /**
+   * Specialized version of `std::function<void(bool)>`.
+   */
+  using Func_void_bool = std::function<void(bool /* interferenceDetected */)>;
+  /**
+   * Wrapper class for a `std::function<void(bool / * interferenceDetected * /)>`, this can be used from Swift.
+   */
+  class Func_void_bool_Wrapper final {
+  public:
+    explicit Func_void_bool_Wrapper(std::function<void(bool /* interferenceDetected */)>&& func): _function(std::make_unique<std::function<void(bool /* interferenceDetected */)>>(std::move(func))) {}
+    inline void call(bool interferenceDetected) const noexcept {
+      _function->operator()(interferenceDetected);
+    }
+  private:
+    std::unique_ptr<std::function<void(bool /* interferenceDetected */)>> _function;
+  } SWIFT_NONCOPYABLE;
+  Func_void_bool create_Func_void_bool(void* NON_NULL swiftClosureWrapper) noexcept;
+  inline Func_void_bool_Wrapper wrap_Func_void_bool(Func_void_bool value) noexcept {
+    return Func_void_bool_Wrapper(std::move(value));
+  }
+  
   // pragma MARK: std::shared_ptr<HybridNitroCompassSpec>
   /**
    * Specialized version of `std::shared_ptr<HybridNitroCompassSpec>`.

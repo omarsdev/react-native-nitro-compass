@@ -140,6 +140,12 @@ namespace margelo::nitro::nitrocompass {
         std::rethrow_exception(__result.error());
       }
     }
+    inline void setOnInterferenceDetected(const std::function<void(bool /* interferenceDetected */)>& onChange) override {
+      auto __result = _swiftPart.setOnInterferenceDetected(onChange);
+      if (__result.hasError()) [[unlikely]] {
+        std::rethrow_exception(__result.error());
+      }
+    }
     inline void setPauseOnBackground(bool enabled) override {
       auto __result = _swiftPart.setPauseOnBackground(std::forward<decltype(enabled)>(enabled));
       if (__result.hasError()) [[unlikely]] {

@@ -56,6 +56,7 @@ NitroCompass.getCurrentHeading(): CompassSample | undefined
 NitroCompass.getDiagnostics(): SensorDiagnostics | undefined
 NitroCompass.setDeclination(degrees: number): void
 NitroCompass.setOnCalibrationNeeded(onChange: (quality: AccuracyQuality) => void): void
+NitroCompass.setOnInterferenceDetected(onChange: (interferenceDetected: boolean) => void): void
 NitroCompass.setPauseOnBackground(enabled: boolean): void
 
 interface CompassSample {
@@ -83,6 +84,19 @@ NitroCompass.setOnCalibrationNeeded((q) => {
   if (q === 'unreliable') showCalibrationToast()
 })
 ```
+
+### Magnetic interference
+
+`setOnInterferenceDetected(cb)` fires `true` when the raw magnetic field magnitude leaves the normal Earth band (~20–70 µT) and `false` when it returns. Typical sources are laptops, monitors, car engines, and large steel structures — these can skew heading by tens of degrees while the calibration bucket still reads `'medium'` or better, so this is complementary to the calibration callback rather than a replacement.
+
+```ts
+NitroCompass.setOnInterferenceDetected((interfering) => {
+  if (interfering) showInterferenceWarning()
+  else hideInterferenceWarning()
+})
+```
+
+Android uses `Sensor.TYPE_MAGNETIC_FIELD` at ~5 Hz. iOS uses raw (uncalibrated) magnetometer data via CoreMotion; the magnitude includes some device-internal bias and may differ from Android by a few µT, but the transition behaviour matches. Only triggered while `start()` is active; no debounce, so brief excursions still fire.
 
 ### Magnetic vs true north
 

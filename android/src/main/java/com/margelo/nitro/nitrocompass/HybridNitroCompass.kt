@@ -20,6 +20,7 @@ import com.facebook.proguard.annotations.DoNotStrip
 import com.margelo.nitro.NitroModules
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.math.abs
+import kotlin.math.sqrt
 
 /**
  * Android implementation of NitroCompass.
@@ -44,6 +45,13 @@ class HybridNitroCompass : HybridNitroCompassSpec() {
     // froze and force a re-registration.
     private const val WATCHDOG_PERIOD_MS = 1_500L
     private const val STALE_THRESHOLD_NS = 1_500_000_000L
+
+    // Earth's magnetic field magnitude is typically 25–65 µT. Anything
+    // outside this band (with a small grace margin) is treated as
+    // external interference — laptops, monitors, car engines, and
+    // structural steel routinely push readings well above 100 µT.
+    private const val EARTH_FIELD_MIN_UT = 20.0
+    private const val EARTH_FIELD_MAX_UT = 70.0
   }
 
   @Volatile private var filterDeg: Double = 1.0
@@ -57,6 +65,7 @@ class HybridNitroCompass : HybridNitroCompassSpec() {
   @Volatile private var isSubscribed: Boolean = false
   @Volatile private var activeFilterDegrees: Double = 1.0
   @Volatile private var lastEventNs: Long = 0L
+  @Volatile private var lastInterference: Boolean? = null
 
   private val rotationMatrix = FloatArray(16)
   private val remappedMatrix = FloatArray(16)
@@ -71,6 +80,7 @@ class HybridNitroCompass : HybridNitroCompassSpec() {
   private var lifecycleCallbacks: Application.ActivityLifecycleCallbacks? = null
   private var onHeading: ((CompassSample) -> Unit)? = null
   private var calibrationCb: ((AccuracyQuality) -> Unit)? = null
+  private var interferenceCb: ((Boolean) -> Unit)? = null
 
   private val watchdogHandler = Handler(Looper.getMainLooper())
   private val watchdogRunnable = object : Runnable {
@@ -159,6 +169,10 @@ class HybridNitroCompass : HybridNitroCompassSpec() {
     calibrationCb = onChange
   }
 
+  override fun setOnInterferenceDetected(onChange: (interferenceDetected: Boolean) -> Unit) {
+    interferenceCb = onChange
+  }
+
   override fun setPauseOnBackground(enabled: Boolean) {
     synchronized(this) {
       pauseOnBackground = enabled
@@ -177,6 +191,7 @@ class HybridNitroCompass : HybridNitroCompassSpec() {
     onHeading = null
     lastSample = null
     lastQuality = null
+    lastInterference = null
   }
 
   private fun subscribeLocked() {
@@ -202,6 +217,14 @@ class HybridNitroCompass : HybridNitroCompassSpec() {
       }
     }
     sm.registerListener(listener, sensor, SensorManager.SENSOR_DELAY_GAME, handler)
+
+    // Optional second subscription for magnetic-interference detection.
+    // 5Hz is plenty (we only care about transitions in/out of the
+    // Earth-field band) and keeps power cost negligible. Same listener
+    // instance — events are demuxed by sensor type in handleSensorEvent.
+    sm.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD)?.let { magSensor ->
+      sm.registerListener(listener, magSensor, SensorManager.SENSOR_DELAY_NORMAL, handler)
+    }
 
     sensorThread = thread
     sensorHandler = handler
@@ -282,6 +305,10 @@ class HybridNitroCompass : HybridNitroCompassSpec() {
 
   private fun handleSensorEvent(event: SensorEvent) {
     val type = event.sensor.type
+    if (type == Sensor.TYPE_MAGNETIC_FIELD) {
+      handleMagneticEvent(event)
+      return
+    }
     if (type != Sensor.TYPE_ROTATION_VECTOR &&
       type != Sensor.TYPE_GEOMAGNETIC_ROTATION_VECTOR
     ) return
@@ -318,6 +345,18 @@ class HybridNitroCompass : HybridNitroCompassSpec() {
     val sample = CompassSample(emitted, lastAccuracyDeg)
     lastSample = sample
     onHeading?.invoke(sample)
+  }
+
+  private fun handleMagneticEvent(event: SensorEvent) {
+    if (event.values.size < 3) return
+    val x = event.values[0]
+    val y = event.values[1]
+    val z = event.values[2]
+    val magnitude = sqrt((x * x + y * y + z * z).toDouble())
+    val isInterference = magnitude < EARTH_FIELD_MIN_UT || magnitude > EARTH_FIELD_MAX_UT
+    if (lastInterference == isInterference) return
+    lastInterference = isInterference
+    interferenceCb?.invoke(isInterference)
   }
 
   private fun handleAccuracyChanged(accuracy: Int) {

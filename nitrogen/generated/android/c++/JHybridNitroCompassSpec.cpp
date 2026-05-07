@@ -29,6 +29,7 @@ namespace margelo::nitro::nitrocompass { enum class AccuracyQuality; }
 #include "AccuracyQuality.hpp"
 #include "JFunc_void_AccuracyQuality.hpp"
 #include "JAccuracyQuality.hpp"
+#include "JFunc_void_bool.hpp"
 
 namespace margelo::nitro::nitrocompass {
 
@@ -102,6 +103,10 @@ namespace margelo::nitro::nitrocompass {
   void JHybridNitroCompassSpec::setOnCalibrationNeeded(const std::function<void(AccuracyQuality /* quality */)>& onChange) {
     static const auto method = _javaPart->javaClassStatic()->getMethod<void(jni::alias_ref<JFunc_void_AccuracyQuality::javaobject> /* onChange */)>("setOnCalibrationNeeded_cxx");
     method(_javaPart, JFunc_void_AccuracyQuality_cxx::fromCpp(onChange));
+  }
+  void JHybridNitroCompassSpec::setOnInterferenceDetected(const std::function<void(bool /* interferenceDetected */)>& onChange) {
+    static const auto method = _javaPart->javaClassStatic()->getMethod<void(jni::alias_ref<JFunc_void_bool::javaobject> /* onChange */)>("setOnInterferenceDetected_cxx");
+    method(_javaPart, JFunc_void_bool_cxx::fromCpp(onChange));
   }
   void JHybridNitroCompassSpec::setPauseOnBackground(bool enabled) {
     static const auto method = _javaPart->javaClassStatic()->getMethod<void(jboolean /* enabled */)>("setPauseOnBackground");

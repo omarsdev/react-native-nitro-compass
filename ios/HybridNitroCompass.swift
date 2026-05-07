@@ -9,8 +9,16 @@
 
 import Foundation
 import CoreLocation
+import CoreMotion
 import NitroModules
 import UIKit
+
+// Earth's magnetic field magnitude is typically 25–65 µT. Anything
+// outside this band (with a small grace margin) is treated as
+// external interference — laptops, monitors, car engines, and
+// structural steel routinely push readings well above 100 µT.
+private let earthFieldMinUT: Double = 20
+private let earthFieldMaxUT: Double = 70
 
 class HybridNitroCompass: HybridNitroCompassSpec {
   // CLLocationManager must be created on a thread with an active run loop
@@ -26,6 +34,15 @@ class HybridNitroCompass: HybridNitroCompassSpec {
   private var lastSample: CompassSample?
   private var lastQuality: AccuracyQuality?
   private var calibrationCb: ((AccuracyQuality) -> Void)?
+  private var interferenceCb: ((Bool) -> Void)?
+  private let motionManager = CMMotionManager()
+  private let motionQueue: OperationQueue = {
+    let q = OperationQueue()
+    q.name = "NitroCompass.motion"
+    q.maxConcurrentOperationCount = 1
+    return q
+  }()
+  private var lastInterference: Bool?
   private var pauseOnBackground: Bool = true
   private var started: Bool = false
   private var isSubscribed: Bool = false
@@ -149,6 +166,10 @@ class HybridNitroCompass: HybridNitroCompassSpec {
     calibrationCb = onChange
   }
 
+  func setOnInterferenceDetected(onChange: @escaping (_ interferenceDetected: Bool) -> Void) throws {
+    interferenceCb = onChange
+  }
+
   func setPauseOnBackground(enabled: Bool) throws {
     pauseOnBackground = enabled
     if enabled, started, isSubscribed, appIsBackgrounded {
@@ -164,13 +185,38 @@ class HybridNitroCompass: HybridNitroCompassSpec {
     guard !isSubscribed else { return }
     manager.headingFilter = activeFilterDegrees == 0 ? kCLHeadingFilterNone : activeFilterDegrees
     manager.startUpdatingHeading()
+    startMagnetometerIfAvailable()
     isSubscribed = true
   }
 
   private func unsubscribe() {
     guard isSubscribed else { return }
     manager.stopUpdatingHeading()
+    stopMagnetometerIfRunning()
     isSubscribed = false
+  }
+
+  private func startMagnetometerIfAvailable() {
+    guard motionManager.isMagnetometerAvailable, !motionManager.isMagnetometerActive else { return }
+    motionManager.magnetometerUpdateInterval = 0.2 // 5Hz — only transitions matter
+    motionManager.startMagnetometerUpdates(to: motionQueue) { [weak self] data, _ in
+      guard let self = self, let f = data?.magneticField else { return }
+      let magnitude = sqrt(f.x * f.x + f.y * f.y + f.z * f.z)
+      self.evaluateInterference(magnitude: magnitude)
+    }
+  }
+
+  private func stopMagnetometerIfRunning() {
+    if motionManager.isMagnetometerActive {
+      motionManager.stopMagnetometerUpdates()
+    }
+  }
+
+  private func evaluateInterference(magnitude: Double) {
+    let isInterference = magnitude < earthFieldMinUT || magnitude > earthFieldMaxUT
+    if lastInterference == isInterference { return }
+    lastInterference = isInterference
+    interferenceCb?(isInterference)
   }
 
   private func handleBackground() {
@@ -212,6 +258,7 @@ class HybridNitroCompass: HybridNitroCompassSpec {
     onSample = nil
     lastSample = nil
     lastQuality = nil
+    lastInterference = nil
   }
 
   private func deliver(heading magnetic: Double, accuracy: Double) {

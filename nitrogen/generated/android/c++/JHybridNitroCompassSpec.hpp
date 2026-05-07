@@ -63,6 +63,7 @@ namespace margelo::nitro::nitrocompass {
     std::optional<CompassSample> getCurrentHeading() override;
     void setDeclination(double degrees) override;
     void setOnCalibrationNeeded(const std::function<void(AccuracyQuality /* quality */)>& onChange) override;
+    void setOnInterferenceDetected(const std::function<void(bool /* interferenceDetected */)>& onChange) override;
     void setPauseOnBackground(bool enabled) override;
 
   private:

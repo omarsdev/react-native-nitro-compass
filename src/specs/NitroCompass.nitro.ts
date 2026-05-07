@@ -129,6 +129,27 @@ export interface NitroCompass extends HybridObject<{ ios: 'swift'; android: 'kot
   setOnCalibrationNeeded(onChange: (quality: AccuracyQuality) => void): void
 
   /**
+   * Register a callback fired when external magnetic interference is
+   * detected — typical sources are laptops, monitors, car engines, and
+   * large steel structures, all of which can skew heading by tens of
+   * degrees while the calibration bucket still reads `'medium'` or
+   * better. Fires `true` when the raw magnetic field magnitude leaves
+   * the normal Earth band (~20–70 µT) and `false` when it returns.
+   * Only transitions are reported; the callback is debounce-free, so
+   * brief excursions still fire.
+   *
+   * Replaces any previously registered callback. Pass a no-op to mute.
+   * The callback is invoked on the JS thread. Only meaningful while
+   * `start()` is active.
+   *
+   * iOS uses raw (uncalibrated) magnetometer data via CoreMotion, which
+   * includes some device-internal bias; the transition behaviour
+   * matches Android's `Sensor.TYPE_MAGNETIC_FIELD`, but absolute
+   * magnitudes can differ by a few µT.
+   */
+  setOnInterferenceDetected(onChange: (interferenceDetected: boolean) => void): void
+
+  /**
    * Toggle automatic pause/resume on app background/foreground. Default
    * `true`. When enabled, the underlying sensor / location-manager
    * subscription is silently paused while the app is backgrounded and
