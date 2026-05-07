@@ -8,6 +8,7 @@ import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import android.hardware.display.DisplayManager
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.HandlerThread
@@ -15,6 +16,7 @@ import android.os.Looper
 import android.os.SystemClock
 import android.view.Display
 import android.view.Surface
+import java.lang.ref.WeakReference
 import androidx.annotation.Keep
 import com.facebook.proguard.annotations.DoNotStrip
 import com.margelo.nitro.NitroModules
@@ -66,6 +68,7 @@ class HybridNitroCompass : HybridNitroCompassSpec() {
   @Volatile private var activeFilterDegrees: Double = 1.0
   @Volatile private var lastEventNs: Long = 0L
   @Volatile private var lastInterference: Boolean? = null
+  @Volatile private var currentActivityRef: WeakReference<Activity>? = null
 
   private val rotationMatrix = FloatArray(16)
   private val remappedMatrix = FloatArray(16)
@@ -263,17 +266,26 @@ class HybridNitroCompass : HybridNitroCompassSpec() {
     val app = NitroModules.applicationContext?.applicationContext as? Application ?: return
     activityCounter.set(1)
     val cb = object : Application.ActivityLifecycleCallbacks {
-      override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) {}
+      override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) {
+        captureActivity(activity)
+      }
       override fun onActivityStarted(activity: Activity) {
+        captureActivity(activity)
         if (activityCounter.getAndIncrement() == 0) handleForeground()
       }
-      override fun onActivityResumed(activity: Activity) {}
+      override fun onActivityResumed(activity: Activity) {
+        captureActivity(activity)
+      }
       override fun onActivityPaused(activity: Activity) {}
       override fun onActivityStopped(activity: Activity) {
         if (activityCounter.decrementAndGet() == 0) handleBackground()
       }
       override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) {}
-      override fun onActivityDestroyed(activity: Activity) {}
+      override fun onActivityDestroyed(activity: Activity) {
+        if (currentActivityRef?.get() == activity) {
+          currentActivityRef = null
+        }
+      }
     }
     app.registerActivityLifecycleCallbacks(cb)
     lifecycleCallbacks = cb
@@ -285,6 +297,11 @@ class HybridNitroCompass : HybridNitroCompassSpec() {
     app?.unregisterActivityLifecycleCallbacks(cb)
     lifecycleCallbacks = null
     activityCounter.set(0)
+    currentActivityRef = null
+  }
+
+  private fun captureActivity(activity: Activity) {
+    currentActivityRef = WeakReference(activity)
   }
 
   private fun handleBackground() {
@@ -394,9 +411,31 @@ class HybridNitroCompass : HybridNitroCompassSpec() {
   }
 
   private fun currentSurfaceRotation(): Int {
+    // Prefer the *activity's* display when available — on foldables and
+    // multi-window setups the activity's display can differ from the
+    // primary display, so reading via DisplayManager.DEFAULT_DISPLAY
+    // gives the wrong rotation. Activity.getDisplay() is API 30+;
+    // fall back to the deprecated WindowManager.defaultDisplay path on
+    // older devices, and to DisplayManager when we have no activity
+    // (early in the process before any lifecycle callback has fired).
+    val activity = currentActivityRef?.get()
+    if (activity != null) {
+      val display: Display? = try {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+          activity.display
+        } else {
+          @Suppress("DEPRECATION")
+          activity.windowManager.defaultDisplay
+        }
+      } catch (_: Throwable) {
+        null
+      }
+      if (display != null) return display.rotation
+    }
     val ctx = NitroModules.applicationContext ?: return Surface.ROTATION_0
     val dm = ctx.getSystemService(Context.DISPLAY_SERVICE) as? DisplayManager
       ?: return Surface.ROTATION_0
+    @Suppress("DEPRECATION")
     return dm.getDisplay(Display.DEFAULT_DISPLAY)?.rotation ?: Surface.ROTATION_0
   }
 
