@@ -19,12 +19,15 @@ public protocol HybridNitroCompassSpec_protocol: HybridObject {
   func setFilter(degrees: Double) throws -> Void
   func setSmoothing(alpha: Double) throws -> Void
   func getDiagnostics() throws -> SensorDiagnostics?
+  func getDebugInfo() throws -> DebugInfo
   func hasCompass() throws -> Bool
   func getCurrentHeading() throws -> CompassSample?
   func setDeclination(degrees: Double) throws -> Void
+  func setLocation(latitude: Double, longitude: Double) throws -> Void
   func setOnCalibrationNeeded(onChange: @escaping (_ quality: AccuracyQuality) -> Void) throws -> Void
   func setOnInterferenceDetected(onChange: @escaping (_ interferenceDetected: Bool) -> Void) throws -> Void
   func setPauseOnBackground(enabled: Bool) throws -> Void
+  func recalibrate() throws -> Void
   func getPermissionStatus() throws -> PermissionStatus
   func requestPermission() throws -> Promise<PermissionStatus>
 }

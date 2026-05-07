@@ -17,6 +17,8 @@
 namespace margelo::nitro::nitrocompass { struct CompassSample; }
 // Forward declaration of `SensorDiagnostics` to properly resolve imports.
 namespace margelo::nitro::nitrocompass { struct SensorDiagnostics; }
+// Forward declaration of `DebugInfo` to properly resolve imports.
+namespace margelo::nitro::nitrocompass { struct DebugInfo; }
 // Forward declaration of `AccuracyQuality` to properly resolve imports.
 namespace margelo::nitro::nitrocompass { enum class AccuracyQuality; }
 // Forward declaration of `PermissionStatus` to properly resolve imports.
@@ -26,6 +28,7 @@ namespace margelo::nitro::nitrocompass { enum class PermissionStatus; }
 #include <functional>
 #include "SensorDiagnostics.hpp"
 #include <optional>
+#include "DebugInfo.hpp"
 #include "AccuracyQuality.hpp"
 #include "PermissionStatus.hpp"
 #include <NitroModules/Promise.hpp>
@@ -67,12 +70,15 @@ namespace margelo::nitro::nitrocompass {
       virtual void setFilter(double degrees) = 0;
       virtual void setSmoothing(double alpha) = 0;
       virtual std::optional<SensorDiagnostics> getDiagnostics() = 0;
+      virtual DebugInfo getDebugInfo() = 0;
       virtual bool hasCompass() = 0;
       virtual std::optional<CompassSample> getCurrentHeading() = 0;
       virtual void setDeclination(double degrees) = 0;
+      virtual void setLocation(double latitude, double longitude) = 0;
       virtual void setOnCalibrationNeeded(const std::function<void(AccuracyQuality /* quality */)>& onChange) = 0;
       virtual void setOnInterferenceDetected(const std::function<void(bool /* interferenceDetected */)>& onChange) = 0;
       virtual void setPauseOnBackground(bool enabled) = 0;
+      virtual void recalibrate() = 0;
       virtual PermissionStatus getPermissionStatus() = 0;
       virtual std::shared_ptr<Promise<PermissionStatus>> requestPermission() = 0;
 

@@ -18,6 +18,8 @@ namespace margelo::nitro::nitrocompass { struct CompassSample; }
 namespace margelo::nitro::nitrocompass { struct SensorDiagnostics; }
 // Forward declaration of `SensorKind` to properly resolve imports.
 namespace margelo::nitro::nitrocompass { enum class SensorKind; }
+// Forward declaration of `DebugInfo` to properly resolve imports.
+namespace margelo::nitro::nitrocompass { struct DebugInfo; }
 // Forward declaration of `AccuracyQuality` to properly resolve imports.
 namespace margelo::nitro::nitrocompass { enum class AccuracyQuality; }
 // Forward declaration of `PermissionStatus` to properly resolve imports.
@@ -28,6 +30,7 @@ namespace margelo::nitro::nitrocompass { enum class PermissionStatus; }
 #include "SensorDiagnostics.hpp"
 #include <optional>
 #include "SensorKind.hpp"
+#include "DebugInfo.hpp"
 #include "AccuracyQuality.hpp"
 #include "PermissionStatus.hpp"
 #include <NitroModules/Promise.hpp>
@@ -122,6 +125,14 @@ namespace margelo::nitro::nitrocompass {
       auto __value = std::move(__result.value());
       return __value;
     }
+    inline DebugInfo getDebugInfo() override {
+      auto __result = _swiftPart.getDebugInfo();
+      if (__result.hasError()) [[unlikely]] {
+        std::rethrow_exception(__result.error());
+      }
+      auto __value = std::move(__result.value());
+      return __value;
+    }
     inline bool hasCompass() override {
       auto __result = _swiftPart.hasCompass();
       if (__result.hasError()) [[unlikely]] {
@@ -144,6 +155,12 @@ namespace margelo::nitro::nitrocompass {
         std::rethrow_exception(__result.error());
       }
     }
+    inline void setLocation(double latitude, double longitude) override {
+      auto __result = _swiftPart.setLocation(std::forward<decltype(latitude)>(latitude), std::forward<decltype(longitude)>(longitude));
+      if (__result.hasError()) [[unlikely]] {
+        std::rethrow_exception(__result.error());
+      }
+    }
     inline void setOnCalibrationNeeded(const std::function<void(AccuracyQuality /* quality */)>& onChange) override {
       auto __result = _swiftPart.setOnCalibrationNeeded(onChange);
       if (__result.hasError()) [[unlikely]] {
@@ -158,6 +175,12 @@ namespace margelo::nitro::nitrocompass {
     }
     inline void setPauseOnBackground(bool enabled) override {
       auto __result = _swiftPart.setPauseOnBackground(std::forward<decltype(enabled)>(enabled));
+      if (__result.hasError()) [[unlikely]] {
+        std::rethrow_exception(__result.error());
+      }
+    }
+    inline void recalibrate() override {
+      auto __result = _swiftPart.recalibrate();
       if (__result.hasError()) [[unlikely]] {
         std::rethrow_exception(__result.error());
       }

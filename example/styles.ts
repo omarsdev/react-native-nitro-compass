@@ -9,6 +9,26 @@ export const styles = StyleSheet.create({
     paddingVertical: 12,
   },
 
+  // Top bar (persistent — Header + Start/Stop)
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    marginBottom: 8,
+  },
+  topButton: {
+    paddingHorizontal: 18,
+    paddingVertical: 8,
+    borderRadius: 20,
+    minWidth: 80,
+    alignItems: 'center',
+  },
+  topButtonText: {color: '#fff', fontSize: 14, fontWeight: '600'},
+
+  // Scroll body
+  scrollContent: {paddingBottom: 24},
+
   // Header
   header: {
     flexDirection: 'row',
@@ -108,9 +128,20 @@ export const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 8,
     overflow: 'hidden',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
   },
   bannerInterference: {backgroundColor: '#a23'},
   bannerCalibration: {backgroundColor: '#a72'},
+  bannerText: {color: '#fff', fontSize: 12, flex: 1},
+  refreshButton: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+  },
+  refreshButtonText: {color: '#fff', fontSize: 12, fontWeight: '600'},
 
   // Controls
   controls: {gap: 14, marginTop: 16},
@@ -149,4 +180,27 @@ export const styles = StyleSheet.create({
   buttonText: {color: '#fff', fontSize: 16, fontWeight: '600'},
 
   error: {color: '#f88', fontSize: 12, marginTop: 8, textAlign: 'center'},
+
+  // Debug panel
+  debugPanel: {marginTop: 12},
+  debugToggle: {alignSelf: 'flex-start', paddingVertical: 4},
+  debugToggleText: {color: '#666', fontSize: 11, fontWeight: '600'},
+  debugBody: {
+    marginTop: 6,
+    padding: 10,
+    borderRadius: 8,
+    backgroundColor: '#15151a',
+    gap: 3,
+  },
+  debugRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  debugKey: {color: '#777', fontSize: 11},
+  debugValue: {
+    color: '#cdd',
+    fontSize: 11,
+    fontVariant: ['tabular-nums'],
+  },
 });

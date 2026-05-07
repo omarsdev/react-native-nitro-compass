@@ -43,6 +43,10 @@ class HybridNitroCompass: HybridNitroCompassSpec {
     return q
   }()
   private var lastInterference: Bool?
+  // Most recent calibrated magnetic-field magnitude (µT). Surfaced on
+  // every CompassSample so consumers can render a strength meter; -1
+  // until CMDeviceMotion produces its first calibrated reading.
+  private var lastFieldUt: Double = -1
   private var pauseOnBackground: Bool = true
   private var started: Bool = false
   private var isSubscribed: Bool = false
@@ -193,6 +197,25 @@ class HybridNitroCompass: HybridNitroCompassSpec {
     return SensorDiagnostics(sensor: .corelocation)
   }
 
+  // iOS lets CLLocationManager handle the gyro+mag fusion + bias
+  // estimation internally, so most of the Android-side debug fields
+  // have no analogue on this side. We surface the two we *can*
+  // observe (current interference state, last field strength) and
+  // report sentinel "n/a" values for the rest, matching the iOS
+  // notes in the DebugInfo doc.
+  func getDebugInfo() throws -> DebugInfo {
+    return DebugInfo(
+      interferenceActive: lastInterference == true,
+      msSinceLastBiasJump: -1,
+      expectedFieldMicroTesla: -1,
+      lastFieldMicroTesla: lastFieldUt,
+      fusedYawDeg: Double.nan,
+      lastYawRateDegPerS: 0,
+      hasGameRotationVector: false,
+      usingUncalibratedMag: false
+    )
+  }
+
   func getCurrentHeading() throws -> CompassSample? {
     return lastSample
   }
@@ -200,6 +223,12 @@ class HybridNitroCompass: HybridNitroCompassSpec {
   func setDeclination(degrees: Double) throws {
     declinationDeg = degrees
   }
+
+  // No-op on iOS — `CLLocationManager` already uses GPS-derived location
+  // internally for all field-related reasoning (true-north, declination,
+  // expected field strength). Layering our own lookup on top would be
+  // redundant. Provided for cross-platform JS callers.
+  func setLocation(latitude: Double, longitude: Double) throws {}
 
   func setOnCalibrationNeeded(onChange: @escaping (_ quality: AccuracyQuality) -> Void) throws {
     calibrationCb = onChange
@@ -220,6 +249,26 @@ class HybridNitroCompass: HybridNitroCompassSpec {
     } else if !enabled, started, !isSubscribed {
       subscribe()
     }
+  }
+
+  func recalibrate() throws {
+    // Stop/start the heading subscription and reset every cached
+    // signal. Apple's CLLocationManager handles soft/hard-iron
+    // calibration internally — the recovery itself still requires the
+    // user to move the device through varying orientations — but
+    // dropping our own cached state ensures the next callback isn't
+    // suppressed by stale `lastQuality` / `lastInterference`
+    // comparisons, and dismisses any pending heading-calibration
+    // overlay so the consumer can prompt fresh.
+    guard started else { return }
+    manager.dismissHeadingCalibrationDisplay()
+    let wasSubscribed = isSubscribed
+    if wasSubscribed { unsubscribe() }
+    lastSample = nil
+    lastQuality = nil
+    lastInterference = nil
+    lastFieldUt = -1
+    if wasSubscribed { subscribe() }
   }
 
   func getPermissionStatus() throws -> PermissionStatus {
@@ -302,6 +351,7 @@ class HybridNitroCompass: HybridNitroCompassSpec {
       if cal.accuracy == .uncalibrated { return }
       let f = cal.field
       let magnitude = sqrt(f.x * f.x + f.y * f.y + f.z * f.z)
+      self.lastFieldUt = magnitude
       self.evaluateInterference(magnitude: magnitude)
     }
   }
@@ -359,13 +409,18 @@ class HybridNitroCompass: HybridNitroCompassSpec {
     lastSample = nil
     lastQuality = nil
     lastInterference = nil
+    lastFieldUt = -1
   }
 
   private func deliver(heading magnetic: Double, accuracy: Double) {
     var heading = magnetic + declinationDeg
     heading = heading.truncatingRemainder(dividingBy: 360)
     if heading < 0 { heading += 360 }
-    let sample = CompassSample(heading: heading, accuracy: accuracy)
+    let sample = CompassSample(
+      heading: heading,
+      accuracy: accuracy,
+      fieldStrengthMicroTesla: lastFieldUt
+    )
     lastSample = sample
 
     // CLLocationManager.headingAccuracy is conservative — even a

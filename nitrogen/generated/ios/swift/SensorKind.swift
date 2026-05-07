@@ -17,12 +17,14 @@ public extension SensorKind {
    */
   init?(fromString string: String) {
     switch string {
+      case "magnetometer":
+        self = .magnetometer
+      case "coreLocation":
+        self = .corelocation
       case "rotationVector":
         self = .rotationvector
       case "geomagneticRotationVector":
         self = .geomagneticrotationvector
-      case "coreLocation":
-        self = .corelocation
       default:
         return nil
     }
@@ -33,12 +35,14 @@ public extension SensorKind {
    */
   var stringValue: String {
     switch self {
+      case .magnetometer:
+        return "magnetometer"
+      case .corelocation:
+        return "coreLocation"
       case .rotationvector:
         return "rotationVector"
       case .geomagneticrotationvector:
         return "geomagneticRotationVector"
-      case .corelocation:
-        return "coreLocation"
     }
   }
 }

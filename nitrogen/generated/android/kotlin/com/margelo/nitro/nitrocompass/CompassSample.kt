@@ -23,7 +23,10 @@ data class CompassSample(
   val heading: Double,
   @DoNotStrip
   @Keep
-  val accuracy: Double
+  val accuracy: Double,
+  @DoNotStrip
+  @Keep
+  val fieldStrengthMicroTesla: Double
 ) {
   /* primary constructor */
 
@@ -32,12 +35,14 @@ data class CompassSample(
     if (other !is CompassSample) return false
     return Objects.deepEquals(this.heading, other.heading)
       && Objects.deepEquals(this.accuracy, other.accuracy)
+      && Objects.deepEquals(this.fieldStrengthMicroTesla, other.fieldStrengthMicroTesla)
   }
 
   override fun hashCode(): Int {
     return arrayOf(
       heading,
-      accuracy
+      accuracy,
+      fieldStrengthMicroTesla
     ).contentDeepHashCode()
   }
 
@@ -49,8 +54,8 @@ data class CompassSample(
     @Keep
     @Suppress("unused")
     @JvmStatic
-    private fun fromCpp(heading: Double, accuracy: Double): CompassSample {
-      return CompassSample(heading, accuracy)
+    private fun fromCpp(heading: Double, accuracy: Double, fieldStrengthMicroTesla: Double): CompassSample {
+      return CompassSample(heading, accuracy, fieldStrengthMicroTesla)
     }
   }
 }

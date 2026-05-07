@@ -1,6 +1,6 @@
 import {Text, View} from 'react-native';
 import type {AccuracyQuality, CompassSample} from 'react-native-nitro-compass';
-import {cardinal, qualityColor} from '../utils';
+import {cardinal, fieldStrengthColor, qualityColor} from '../utils';
 import {styles} from '../styles';
 
 interface Props {
@@ -9,6 +9,7 @@ interface Props {
 }
 
 export function Readout({reading, quality}: Props) {
+  const fieldUt = reading?.fieldStrengthMicroTesla ?? -1;
   return (
     <View style={styles.readout}>
       <Text style={styles.heading}>
@@ -28,6 +29,17 @@ export function Readout({reading, quality}: Props) {
               : `±${reading.accuracy.toFixed(0)}°`
             : '—'}
           {quality ? ` · ${quality}` : ''}
+        </Text>
+      </View>
+      <View style={styles.accRow}>
+        <View
+          style={[
+            styles.accDot,
+            {backgroundColor: fieldStrengthColor(fieldUt)},
+          ]}
+        />
+        <Text style={styles.accuracy}>
+          {fieldUt < 0 ? 'field —' : `field ${fieldUt.toFixed(1)} µT`}
         </Text>
       </View>
     </View>

@@ -6,13 +6,14 @@
  * `./components/*` and the StyleSheet lives in `./styles`.
  */
 import {useState} from 'react';
-import {Pressable, StatusBar, Text} from 'react-native';
+import {Pressable, ScrollView, StatusBar, Text, View} from 'react-native';
 import {SafeAreaProvider, SafeAreaView} from 'react-native-safe-area-context';
 import {useCompass} from 'react-native-nitro-compass';
 
 import {Alerts} from './components/Alerts';
 import {Compass} from './components/Compass';
 import {Controls} from './components/Controls';
+import {DebugPanel} from './components/DebugPanel';
 import {Header} from './components/Header';
 import {Readout} from './components/Readout';
 import {DEMO_DECLINATION_DEG, type Filter, type Smoothing} from './utils';
@@ -37,41 +38,52 @@ function CompassScreen() {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#0d0d10" />
 
-      <Header sensorKind={diagnostics?.sensor} />
+      <View style={styles.topBar}>
+        <Header sensorKind={diagnostics?.sensor} />
+        <Pressable
+          onPress={() => setRunning(r => !r)}
+          disabled={!hasCompass}
+          style={({pressed}) => [
+            styles.topButton,
+            {
+              opacity: pressed ? 0.7 : !hasCompass ? 0.4 : 1,
+              backgroundColor: running ? '#b33' : '#0a7',
+            },
+          ]}>
+          <Text style={styles.topButtonText}>
+            {running ? 'Stop' : 'Start'}
+          </Text>
+        </Pressable>
+      </View>
 
-      {!hasCompass && (
-        <Text style={styles.error}>This device has no compass hardware.</Text>
-      )}
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}>
+        {!hasCompass && (
+          <Text style={styles.error}>
+            This device has no compass hardware.
+          </Text>
+        )}
 
-      <Compass enabled={running} />
+        <Compass enabled={running} />
 
-      <Readout reading={reading} quality={quality} />
+        <Readout reading={reading} quality={quality} />
 
-      <Alerts interfering={interfering} quality={quality} />
+        <Alerts interfering={interfering} quality={quality} />
 
-      <Controls
-        filter={filter}
-        onFilterChange={setFilter}
-        smoothing={smoothing}
-        onSmoothingChange={setSmoothing}
-        pauseOnBackground={pauseOnBackground}
-        onPauseOnBackgroundChange={setPauseOnBackground}
-        trueNorthDemo={trueNorthDemo}
-        onTrueNorthDemoChange={setTrueNorthDemo}
-      />
+        <Controls
+          filter={filter}
+          onFilterChange={setFilter}
+          smoothing={smoothing}
+          onSmoothingChange={setSmoothing}
+          pauseOnBackground={pauseOnBackground}
+          onPauseOnBackgroundChange={setPauseOnBackground}
+          trueNorthDemo={trueNorthDemo}
+          onTrueNorthDemoChange={setTrueNorthDemo}
+        />
 
-      <Pressable
-        onPress={() => setRunning(r => !r)}
-        disabled={!hasCompass}
-        style={({pressed}) => [
-          styles.button,
-          {
-            opacity: pressed ? 0.7 : !hasCompass ? 0.4 : 1,
-            backgroundColor: running ? '#b33' : '#0a7',
-          },
-        ]}>
-        <Text style={styles.buttonText}>{running ? 'Stop' : 'Start'}</Text>
-      </Pressable>
+        <DebugPanel />
+      </ScrollView>
     </SafeAreaView>
   );
 }

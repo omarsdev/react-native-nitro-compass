@@ -60,6 +60,10 @@ abstract class HybridNitroCompassSpec: HybridObject() {
   
   @DoNotStrip
   @Keep
+  abstract fun getDebugInfo(): DebugInfo
+  
+  @DoNotStrip
+  @Keep
   abstract fun hasCompass(): Boolean
   
   @DoNotStrip
@@ -69,6 +73,10 @@ abstract class HybridNitroCompassSpec: HybridObject() {
   @DoNotStrip
   @Keep
   abstract fun setDeclination(degrees: Double): Unit
+  
+  @DoNotStrip
+  @Keep
+  abstract fun setLocation(latitude: Double, longitude: Double): Unit
   
   abstract fun setOnCalibrationNeeded(onChange: (quality: AccuracyQuality) -> Unit): Unit
   
@@ -91,6 +99,10 @@ abstract class HybridNitroCompassSpec: HybridObject() {
   @DoNotStrip
   @Keep
   abstract fun setPauseOnBackground(enabled: Boolean): Unit
+  
+  @DoNotStrip
+  @Keep
+  abstract fun recalibrate(): Unit
   
   @DoNotStrip
   @Keep

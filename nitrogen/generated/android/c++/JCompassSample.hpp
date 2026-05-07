@@ -35,9 +35,12 @@ namespace margelo::nitro::nitrocompass {
       double heading = this->getFieldValue(fieldHeading);
       static const auto fieldAccuracy = clazz->getField<double>("accuracy");
       double accuracy = this->getFieldValue(fieldAccuracy);
+      static const auto fieldFieldStrengthMicroTesla = clazz->getField<double>("fieldStrengthMicroTesla");
+      double fieldStrengthMicroTesla = this->getFieldValue(fieldFieldStrengthMicroTesla);
       return CompassSample(
         heading,
-        accuracy
+        accuracy,
+        fieldStrengthMicroTesla
       );
     }
 
@@ -47,13 +50,14 @@ namespace margelo::nitro::nitrocompass {
      */
     [[maybe_unused]]
     static jni::local_ref<JCompassSample::javaobject> fromCpp(const CompassSample& value) {
-      using JSignature = JCompassSample(double, double);
+      using JSignature = JCompassSample(double, double, double);
       static const auto clazz = javaClassStatic();
       static const auto create = clazz->getStaticMethod<JSignature>("fromCpp");
       return create(
         clazz,
         value.heading,
-        value.accuracy
+        value.accuracy,
+        value.fieldStrengthMicroTesla
       );
     }
   };

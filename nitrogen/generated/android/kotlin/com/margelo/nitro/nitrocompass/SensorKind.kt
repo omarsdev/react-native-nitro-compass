@@ -16,9 +16,10 @@ import com.facebook.proguard.annotations.DoNotStrip
 @DoNotStrip
 @Keep
 enum class SensorKind(@DoNotStrip @Keep val value: Int) {
-  ROTATIONVECTOR(0),
-  GEOMAGNETICROTATIONVECTOR(1),
-  CORELOCATION(2);
+  MAGNETOMETER(0),
+  CORELOCATION(1),
+  ROTATIONVECTOR(2),
+  GEOMAGNETICROTATIONVECTOR(3);
 
   companion object
 }

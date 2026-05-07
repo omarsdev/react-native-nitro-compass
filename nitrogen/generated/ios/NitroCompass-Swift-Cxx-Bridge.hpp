@@ -12,6 +12,8 @@
 namespace margelo::nitro::nitrocompass { enum class AccuracyQuality; }
 // Forward declaration of `CompassSample` to properly resolve imports.
 namespace margelo::nitro::nitrocompass { struct CompassSample; }
+// Forward declaration of `DebugInfo` to properly resolve imports.
+namespace margelo::nitro::nitrocompass { struct DebugInfo; }
 // Forward declaration of `HybridNitroCompassSpec` to properly resolve imports.
 namespace margelo::nitro::nitrocompass { class HybridNitroCompassSpec; }
 // Forward declaration of `PermissionStatus` to properly resolve imports.
@@ -28,6 +30,7 @@ namespace NitroCompass { class HybridNitroCompassSpec_cxx; }
 // Include C++ defined types
 #include "AccuracyQuality.hpp"
 #include "CompassSample.hpp"
+#include "DebugInfo.hpp"
 #include "HybridNitroCompassSpec.hpp"
 #include "PermissionStatus.hpp"
 #include "SensorDiagnostics.hpp"
@@ -235,6 +238,15 @@ namespace margelo::nitro::nitrocompass::bridge::swift {
   }
   inline Result_std__optional_SensorDiagnostics__ create_Result_std__optional_SensorDiagnostics__(const std::exception_ptr& error) noexcept {
     return Result<std::optional<SensorDiagnostics>>::withError(error);
+  }
+  
+  // pragma MARK: Result<DebugInfo>
+  using Result_DebugInfo_ = Result<DebugInfo>;
+  inline Result_DebugInfo_ create_Result_DebugInfo_(const DebugInfo& value) noexcept {
+    return Result<DebugInfo>::withValue(value);
+  }
+  inline Result_DebugInfo_ create_Result_DebugInfo_(const std::exception_ptr& error) noexcept {
+    return Result<DebugInfo>::withError(error);
   }
   
   // pragma MARK: Result<std::optional<CompassSample>>

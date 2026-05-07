@@ -16,6 +16,7 @@ import {
 import type {
   AccuracyQuality,
   CompassSample,
+  DebugInfo,
   NitroCompassHybridObject,
   PermissionStatus,
   SensorDiagnostics,
@@ -38,7 +39,8 @@ export function _publicSurfaceShape(): {
   api.start(1, (sample: CompassSample) => {
     const heading: number = sample.heading
     const accuracy: number = sample.accuracy
-    return heading + accuracy
+    const fieldUt: number = sample.fieldStrengthMicroTesla
+    return heading + accuracy + fieldUt
   })
   api.setFilter(2)
   api.stop()
@@ -47,11 +49,33 @@ export function _publicSurfaceShape(): {
   const diagnostics: SensorDiagnostics | undefined = api.getDiagnostics()
   if (diagnostics !== undefined) {
     const kind: SensorKind = diagnostics.sensor
-    const ok: 'rotationVector' | 'geomagneticRotationVector' | 'coreLocation' = kind
+    const ok:
+      | 'magnetometer'
+      | 'coreLocation'
+      | 'rotationVector'
+      | 'geomagneticRotationVector' = kind
     void ok
   }
 
   api.setDeclination(0)
+  api.setLocation(40.7128, -74.006)
+  const debug: DebugInfo = api.getDebugInfo()
+  const interferenceActive: boolean = debug.interferenceActive
+  const msSinceLastBiasJump: number = debug.msSinceLastBiasJump
+  const expectedFieldMicroTesla: number = debug.expectedFieldMicroTesla
+  const lastFieldMicroTesla: number = debug.lastFieldMicroTesla
+  const fusedYawDeg: number = debug.fusedYawDeg
+  const lastYawRateDegPerS: number = debug.lastYawRateDegPerS
+  const hasGameRotationVector: boolean = debug.hasGameRotationVector
+  const usingUncalibratedMag: boolean = debug.usingUncalibratedMag
+  void interferenceActive
+  void msSinceLastBiasJump
+  void expectedFieldMicroTesla
+  void lastFieldMicroTesla
+  void fusedYawDeg
+  void lastYawRateDegPerS
+  void hasGameRotationVector
+  void usingUncalibratedMag
   api.setOnCalibrationNeeded((quality: AccuracyQuality) => {
     const ok: 'high' | 'medium' | 'low' | 'unreliable' = quality
     return ok
@@ -61,6 +85,7 @@ export function _publicSurfaceShape(): {
     return ok
   })
   api.setPauseOnBackground(true)
+  api.recalibrate()
 
   const status: PermissionStatus = api.getPermissionStatus()
   const okStatus: 'granted' | 'denied' | 'unknown' = status

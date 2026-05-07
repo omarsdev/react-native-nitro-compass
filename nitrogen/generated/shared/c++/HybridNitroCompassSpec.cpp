@@ -20,12 +20,15 @@ namespace margelo::nitro::nitrocompass {
       prototype.registerHybridMethod("setFilter", &HybridNitroCompassSpec::setFilter);
       prototype.registerHybridMethod("setSmoothing", &HybridNitroCompassSpec::setSmoothing);
       prototype.registerHybridMethod("getDiagnostics", &HybridNitroCompassSpec::getDiagnostics);
+      prototype.registerHybridMethod("getDebugInfo", &HybridNitroCompassSpec::getDebugInfo);
       prototype.registerHybridMethod("hasCompass", &HybridNitroCompassSpec::hasCompass);
       prototype.registerHybridMethod("getCurrentHeading", &HybridNitroCompassSpec::getCurrentHeading);
       prototype.registerHybridMethod("setDeclination", &HybridNitroCompassSpec::setDeclination);
+      prototype.registerHybridMethod("setLocation", &HybridNitroCompassSpec::setLocation);
       prototype.registerHybridMethod("setOnCalibrationNeeded", &HybridNitroCompassSpec::setOnCalibrationNeeded);
       prototype.registerHybridMethod("setOnInterferenceDetected", &HybridNitroCompassSpec::setOnInterferenceDetected);
       prototype.registerHybridMethod("setPauseOnBackground", &HybridNitroCompassSpec::setPauseOnBackground);
+      prototype.registerHybridMethod("recalibrate", &HybridNitroCompassSpec::recalibrate);
       prototype.registerHybridMethod("getPermissionStatus", &HybridNitroCompassSpec::getPermissionStatus);
       prototype.registerHybridMethod("requestPermission", &HybridNitroCompassSpec::requestPermission);
     });

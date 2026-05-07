@@ -4,7 +4,7 @@
   "engines": {
     "node": ">=18"
   },
-  "description": "Fast, accurate compass heading for React Native, powered by Nitro Modules. Uses Android TYPE_ROTATION_VECTOR sensor fusion and iOS CLHeading.",
+  "description": "Fast, accurate compass heading for React Native, powered by Nitro Modules. Uses raw Android accelerometer + magnetometer fusion (instant interference recovery) and iOS CLHeading.",
   "main": "./lib/commonjs/index.js",
   "module": "./lib/module/index.js",
   "types": "./lib/typescript/src/index.d.ts",

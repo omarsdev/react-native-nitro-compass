@@ -60,12 +60,15 @@ namespace margelo::nitro::nitrocompass {
     void setFilter(double degrees) override;
     void setSmoothing(double alpha) override;
     std::optional<SensorDiagnostics> getDiagnostics() override;
+    DebugInfo getDebugInfo() override;
     bool hasCompass() override;
     std::optional<CompassSample> getCurrentHeading() override;
     void setDeclination(double degrees) override;
+    void setLocation(double latitude, double longitude) override;
     void setOnCalibrationNeeded(const std::function<void(AccuracyQuality /* quality */)>& onChange) override;
     void setOnInterferenceDetected(const std::function<void(bool /* interferenceDetected */)>& onChange) override;
     void setPauseOnBackground(bool enabled) override;
+    void recalibrate() override;
     PermissionStatus getPermissionStatus() override;
     std::shared_ptr<Promise<PermissionStatus>> requestPermission() override;
 

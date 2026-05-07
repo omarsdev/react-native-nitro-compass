@@ -204,6 +204,18 @@ open class HybridNitroCompassSpec_cxx {
   }
   
   @inline(__always)
+  public final func getDebugInfo() -> bridge.Result_DebugInfo_ {
+    do {
+      let __result = try self.__implementation.getDebugInfo()
+      let __resultCpp = __result
+      return bridge.create_Result_DebugInfo_(__resultCpp)
+    } catch (let __error) {
+      let __exceptionPtr = __error.toCpp()
+      return bridge.create_Result_DebugInfo_(__exceptionPtr)
+    }
+  }
+  
+  @inline(__always)
   public final func hasCompass() -> bridge.Result_bool_ {
     do {
       let __result = try self.__implementation.hasCompass()
@@ -237,6 +249,17 @@ open class HybridNitroCompassSpec_cxx {
   public final func setDeclination(degrees: Double) -> bridge.Result_void_ {
     do {
       try self.__implementation.setDeclination(degrees: degrees)
+      return bridge.create_Result_void_()
+    } catch (let __error) {
+      let __exceptionPtr = __error.toCpp()
+      return bridge.create_Result_void_(__exceptionPtr)
+    }
+  }
+  
+  @inline(__always)
+  public final func setLocation(latitude: Double, longitude: Double) -> bridge.Result_void_ {
+    do {
+      try self.__implementation.setLocation(latitude: latitude, longitude: longitude)
       return bridge.create_Result_void_()
     } catch (let __error) {
       let __exceptionPtr = __error.toCpp()
@@ -280,6 +303,17 @@ open class HybridNitroCompassSpec_cxx {
   public final func setPauseOnBackground(enabled: Bool) -> bridge.Result_void_ {
     do {
       try self.__implementation.setPauseOnBackground(enabled: enabled)
+      return bridge.create_Result_void_()
+    } catch (let __error) {
+      let __exceptionPtr = __error.toCpp()
+      return bridge.create_Result_void_(__exceptionPtr)
+    }
+  }
+  
+  @inline(__always)
+  public final func recalibrate() -> bridge.Result_void_ {
+    do {
+      try self.__implementation.recalibrate()
       return bridge.create_Result_void_()
     } catch (let __error) {
       let __exceptionPtr = __error.toCpp()

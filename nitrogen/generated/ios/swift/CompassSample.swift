@@ -18,8 +18,8 @@ public extension CompassSample {
   /**
    * Create a new instance of `CompassSample`.
    */
-  init(heading: Double, accuracy: Double) {
-    self.init(heading, accuracy)
+  init(heading: Double, accuracy: Double, fieldStrengthMicroTesla: Double) {
+    self.init(heading, accuracy, fieldStrengthMicroTesla)
   }
 
   @inline(__always)
@@ -30,5 +30,10 @@ public extension CompassSample {
   @inline(__always)
   var accuracy: Double {
     return self.__accuracy
+  }
+  
+  @inline(__always)
+  var fieldStrengthMicroTesla: Double {
+    return self.__fieldStrengthMicroTesla
   }
 }

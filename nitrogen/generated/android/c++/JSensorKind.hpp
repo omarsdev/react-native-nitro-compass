@@ -42,15 +42,18 @@ namespace margelo::nitro::nitrocompass {
     static jni::alias_ref<JSensorKind> fromCpp(SensorKind value) {
       static const auto clazz = javaClassStatic();
       switch (value) {
+        case SensorKind::MAGNETOMETER:
+          static const auto fieldMAGNETOMETER = clazz->getStaticField<JSensorKind>("MAGNETOMETER");
+          return clazz->getStaticFieldValue(fieldMAGNETOMETER);
+        case SensorKind::CORELOCATION:
+          static const auto fieldCORELOCATION = clazz->getStaticField<JSensorKind>("CORELOCATION");
+          return clazz->getStaticFieldValue(fieldCORELOCATION);
         case SensorKind::ROTATIONVECTOR:
           static const auto fieldROTATIONVECTOR = clazz->getStaticField<JSensorKind>("ROTATIONVECTOR");
           return clazz->getStaticFieldValue(fieldROTATIONVECTOR);
         case SensorKind::GEOMAGNETICROTATIONVECTOR:
           static const auto fieldGEOMAGNETICROTATIONVECTOR = clazz->getStaticField<JSensorKind>("GEOMAGNETICROTATIONVECTOR");
           return clazz->getStaticFieldValue(fieldGEOMAGNETICROTATIONVECTOR);
-        case SensorKind::CORELOCATION:
-          static const auto fieldCORELOCATION = clazz->getStaticField<JSensorKind>("CORELOCATION");
-          return clazz->getStaticFieldValue(fieldCORELOCATION);
         default:
           std::string stringValue = std::to_string(static_cast<int>(value));
           throw std::invalid_argument("Invalid enum value (" + stringValue + "!");

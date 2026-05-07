@@ -7,15 +7,28 @@ export const cardinal = (deg: number) => {
 
 export const sensorLabel = (k: SensorKind | undefined) => {
   switch (k) {
+    case 'magnetometer':
+      return 'magnetometer (raw)';
+    case 'coreLocation':
+      return 'CoreLocation';
     case 'rotationVector':
       return 'rotation-vector (fused)';
     case 'geomagneticRotationVector':
       return 'geomagnetic (no gyro)';
-    case 'coreLocation':
-      return 'CoreLocation';
     default:
       return 'no compass';
   }
+};
+
+// Earth's field is ~25–65 µT depending on latitude. Anything well
+// outside that band signals nearby ferrous metal or active electronics.
+// We surface a coarse colour for the strength meter so consumers can
+// at-a-glance see "is the reading trustworthy right now".
+export const fieldStrengthColor = (uT: number) => {
+  if (uT < 0) return '#666';
+  if (uT < 20 || uT > 70) return '#c33';
+  if (uT < 25 || uT > 65) return '#cb0';
+  return '#0a7';
 };
 
 export const qualityColor = (q: AccuracyQuality | null) => {

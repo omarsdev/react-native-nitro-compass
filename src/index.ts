@@ -1,6 +1,7 @@
 import type {
   AccuracyQuality,
   CompassSample,
+  DebugInfo,
   NitroCompass as NitroCompassSpec,
   PermissionStatus,
   SensorDiagnostics,
@@ -12,6 +13,7 @@ export { NitroCompass } from './native'
 export type {
   AccuracyQuality,
   CompassSample,
+  DebugInfo,
   PermissionStatus,
   SensorDiagnostics,
   SensorKind,

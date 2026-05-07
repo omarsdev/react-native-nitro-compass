@@ -11,6 +11,8 @@
 namespace margelo::nitro::nitrocompass { struct SensorDiagnostics; }
 // Forward declaration of `SensorKind` to properly resolve imports.
 namespace margelo::nitro::nitrocompass { enum class SensorKind; }
+// Forward declaration of `DebugInfo` to properly resolve imports.
+namespace margelo::nitro::nitrocompass { struct DebugInfo; }
 // Forward declaration of `CompassSample` to properly resolve imports.
 namespace margelo::nitro::nitrocompass { struct CompassSample; }
 // Forward declaration of `PermissionStatus` to properly resolve imports.
@@ -23,6 +25,8 @@ namespace margelo::nitro::nitrocompass { enum class AccuracyQuality; }
 #include "JSensorDiagnostics.hpp"
 #include "SensorKind.hpp"
 #include "JSensorKind.hpp"
+#include "DebugInfo.hpp"
+#include "JDebugInfo.hpp"
 #include "CompassSample.hpp"
 #include "JCompassSample.hpp"
 #include "PermissionStatus.hpp"
@@ -96,6 +100,11 @@ namespace margelo::nitro::nitrocompass {
     auto __result = method(_javaPart);
     return __result != nullptr ? std::make_optional(__result->toCpp()) : std::nullopt;
   }
+  DebugInfo JHybridNitroCompassSpec::getDebugInfo() {
+    static const auto method = _javaPart->javaClassStatic()->getMethod<jni::local_ref<JDebugInfo>()>("getDebugInfo");
+    auto __result = method(_javaPart);
+    return __result->toCpp();
+  }
   bool JHybridNitroCompassSpec::hasCompass() {
     static const auto method = _javaPart->javaClassStatic()->getMethod<jboolean()>("hasCompass");
     auto __result = method(_javaPart);
@@ -110,6 +119,10 @@ namespace margelo::nitro::nitrocompass {
     static const auto method = _javaPart->javaClassStatic()->getMethod<void(double /* degrees */)>("setDeclination");
     method(_javaPart, degrees);
   }
+  void JHybridNitroCompassSpec::setLocation(double latitude, double longitude) {
+    static const auto method = _javaPart->javaClassStatic()->getMethod<void(double /* latitude */, double /* longitude */)>("setLocation");
+    method(_javaPart, latitude, longitude);
+  }
   void JHybridNitroCompassSpec::setOnCalibrationNeeded(const std::function<void(AccuracyQuality /* quality */)>& onChange) {
     static const auto method = _javaPart->javaClassStatic()->getMethod<void(jni::alias_ref<JFunc_void_AccuracyQuality::javaobject> /* onChange */)>("setOnCalibrationNeeded_cxx");
     method(_javaPart, JFunc_void_AccuracyQuality_cxx::fromCpp(onChange));
@@ -121,6 +134,10 @@ namespace margelo::nitro::nitrocompass {
   void JHybridNitroCompassSpec::setPauseOnBackground(bool enabled) {
     static const auto method = _javaPart->javaClassStatic()->getMethod<void(jboolean /* enabled */)>("setPauseOnBackground");
     method(_javaPart, enabled);
+  }
+  void JHybridNitroCompassSpec::recalibrate() {
+    static const auto method = _javaPart->javaClassStatic()->getMethod<void()>("recalibrate");
+    method(_javaPart);
   }
   PermissionStatus JHybridNitroCompassSpec::getPermissionStatus() {
     static const auto method = _javaPart->javaClassStatic()->getMethod<jni::local_ref<JPermissionStatus>()>("getPermissionStatus");

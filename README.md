@@ -2,13 +2,13 @@
 
 Fast, accurate compass heading for React Native, powered by [Nitro Modules](https://github.com/mrousavy/nitro).
 
-- **Android**: `Sensor.TYPE_ROTATION_VECTOR` (gyro + accel + magnetometer sensor fusion), with `TYPE_GEOMAGNETIC_ROTATION_VECTOR` fallback for gyroless devices. Sensor delivery on a dedicated `HandlerThread` — never blocks the UI thread. Heading accuracy taken from `event.values[4]` of the rotation vector.
+- **Android**: raw `TYPE_MAGNETIC_FIELD` + `TYPE_ACCELEROMETER` fed through `SensorManager.getRotationMatrix()` + `getOrientation()`. This path is **stateless** — when a magnet or laptop is removed, the very next sample produces the correct heading instead of waiting for OS-level fusion to re-converge. Sensor delivery on a dedicated `HandlerThread` — never blocks the UI thread.
 - **iOS**: `CLLocationManager` heading via `CLHeading.magneticHeading`. Apple's stack already handles sensor fusion natively.
 - **JS API**: type-safe Nitro callbacks — no `NativeEventEmitter`, no string event names.
 
 ## Why
 
-Most React Native compass libraries use the legacy `accelerometer + magnetometer + getRotationMatrix` Android approach, which is laggy, noisy, and requires a figure-8 calibration on every session. This library uses Android's modern fused rotation-vector sensor (recommended by Google since 2013), giving you stable headings without calibration on virtually any modern device.
+Most React Native compass libraries use Android's `TYPE_ROTATION_VECTOR`, which feels great until you put a magnet, a phone, or a laptop next to the device — then the OS-level Kalman filter holds a poisoned bias estimate for many seconds after the source is removed. This library computes heading directly from raw `accelerometer + magnetometer` via `getRotationMatrix()` (the same approach used by popular consumer compass apps), so recovery from interference is instant. We trade a few degrees of steady-state jitter for stateless behaviour, then add back smoothness via a tunable EMA on `(sin θ, cos θ)` (`setSmoothing()`).
 
 ## Requirements
 
@@ -66,15 +66,20 @@ interface CompassSample {
 }
 
 type AccuracyQuality = 'high' | 'medium' | 'low' | 'unreliable'
-type SensorKind = 'rotationVector' | 'geomagneticRotationVector' | 'coreLocation'
+type SensorKind =
+  | 'magnetometer'
+  | 'coreLocation'
+  | 'rotationVector' // legacy, no longer returned
+  | 'geomagneticRotationVector' // legacy, no longer returned
 interface SensorDiagnostics { sensor: SensorKind }
 ```
 
 - `filterDegrees` — minimum change between successive samples before the next one is delivered. Pass `0` for "every event"; typical UI values are `1`–`3`. Use `setFilter()` to change live without tearing down the subscription.
 - `setSmoothing(alpha)` — low-pass smoothing factor (EMA α) applied to heading samples on Android. Range `(0, 1]`, default `0.2` (~100 ms time constant at 50 Hz). `1.0` disables smoothing; smaller values smooth more (kills jitter, adds a touch of latency). **No-op on iOS** — `CLLocationManager` filters internally with Apple's own algorithm, so layering an EMA on top would only add latency. See [Smoothing](#smoothing) below.
 - `start()` is idempotent in the destructive sense — calling it while already started silently replaces the previous subscription with the new callback. `stop()` is idempotent and safe from inside the `onHeading` callback.
-- `getDiagnostics()` reports which sensor would produce headings on this device — useful for explaining quality differences (e.g. a phone falling back to `geomagneticRotationVector` will be more susceptible to magnetic interference than one using `rotationVector`). Safe to call before `start()`.
-- `accuracy` is a numeric uncertainty (degrees). On iOS it comes from `CLHeading.headingAccuracy` directly. On Android it comes from `event.values[4]` of the rotation-vector sensor; if the sensor stack does not publish that (rare), the module falls back to a coarse degree estimate from `SensorManager.SENSOR_STATUS_*` (`HIGH→5°`, `MEDIUM→15°`, `LOW→30°`).
+- `getDiagnostics()` reports which sensor would produce headings on this device. On Android this is always `magnetometer` for current builds (older versions returned `rotationVector` / `geomagneticRotationVector`); on iOS it's `coreLocation`. Safe to call before `start()`.
+- `accuracy` is a numeric uncertainty (degrees). On iOS it comes from `CLHeading.headingAccuracy` directly. On Android it's a coarse degree estimate derived from the magnetometer's `SensorManager.SENSOR_STATUS_*` accuracy bucket — Android's figure-8 calibration signal — mapped to `HIGH→5°`, `MEDIUM→15°`, `LOW→30°`.
+- `fieldStrengthMicroTesla` is the magnitude of the local magnetic field in µT, or `-1` until the first reading lands. Earth's field is normally 25–65 µT — values well outside this band signal external interference (laptops, monitors, magnets, ferrous metal). Useful for rendering a field-strength meter à la consumer compass apps.
 - `getCurrentHeading()` returns the most recently emitted sample (with declination already applied), or `undefined` if not started yet or no sample has arrived.
 
 ### Calibration
@@ -82,7 +87,7 @@ interface SensorDiagnostics { sensor: SensorKind }
 `setOnCalibrationNeeded(cb)` registers a callback fired whenever the calibration bucket transitions. Each platform's bucket is derived from its **native** accuracy semantics, since the underlying values are not directly comparable:
 
 - **iOS** uses `CLHeading.headingAccuracy` (degrees). Apple is conservative — even well-calibrated iPhones typically report `10–15°` and rarely below `5°` (per [Apple staff on the developer forums](https://developer.apple.com/forums/thread/79687)). Buckets: `<20°` → `'high'`, `<35°` → `'medium'`, `<55°` → `'low'`, otherwise `'unreliable'`. The system's "wave the device in a figure-8" prompt is suppressed and reported to your callback as `'unreliable'` — show your own UI when you receive that bucket.
-- **Android** uses `SensorManager.SENSOR_STATUS_*` from `onAccuracyChanged` directly (`HIGH` / `MEDIUM` / `LOW` / `UNRELIABLE`); when `event.values[4]` of the rotation vector publishes a per-sample degree estimate, that's used with thresholds `<5°` / `<15°` / `<30°`. **When magnetic interference is currently detected, the surfaced bucket is downgraded by one notch** (`HIGH→MEDIUM`, `MEDIUM→LOW`, `LOW→UNRELIABLE`) — Android's gyro+accel sensor fusion can keep the OS rotation-vector bucket high even while the magnetometer is being skewed, and surfacing `quality='high'` alongside `interfering=true` is contradictory UX.
+- **Android** uses the magnetometer's `SensorManager.SENSOR_STATUS_*` bucket from `onAccuracyChanged` directly (`HIGH` / `MEDIUM` / `LOW` / `UNRELIABLE`) — Android's signal that the user should do (or has done) a figure-8 to recalibrate. **When magnetic interference is currently detected, the surfaced bucket is downgraded by one notch** (`HIGH→MEDIUM`, `MEDIUM→LOW`, `LOW→UNRELIABLE`) — calibration ("the magnetometer needs to be tuned") and interference ("the field is currently being skewed by something nearby") are independent signals, and surfacing `quality='high'` alongside `interfering=true` is contradictory UX.
 
 Both platforms can plausibly emit `'high'` on a clean device — the threshold split just reflects each OS's reporting style.
 
@@ -96,7 +101,7 @@ NitroCompass.setOnCalibrationNeeded((q) => {
 
 `setOnInterferenceDetected(cb)` fires `true` when the raw magnetic field magnitude leaves the normal Earth band (~20–70 µT) and `false` when it returns. Typical sources are laptops, monitors, car engines, and large steel structures — these can skew heading by tens of degrees.
 
-Interference is surfaced two ways: (1) directly via this callback, and (2) on Android, the calibration bucket emitted by `setOnCalibrationNeeded` is downgraded by one notch while interference is detected (see the Calibration section above). On iOS, only the direct callback fires — `CLLocationManager`'s own accuracy reporting already responds to magnetometer disturbance, so a separate downgrade would double-count.
+Interference is surfaced three ways: (1) directly via this callback, (2) on Android, the calibration bucket emitted by `setOnCalibrationNeeded` is downgraded by one notch while interference is detected (see the Calibration section above), and (3) every `CompassSample` carries `fieldStrengthMicroTesla` so you can render a live strength meter. On iOS, the calibration downgrade is skipped — `CLLocationManager`'s own accuracy reporting already responds to magnetometer disturbance, so a separate downgrade would double-count.
 
 ```ts
 NitroCompass.setOnInterferenceDetected((interfering) => {
@@ -127,7 +132,7 @@ Pass `0` to revert to magnetic. Declination survives `stop()`/`start()` cycles.
 
 ### Smoothing
 
-Android's raw `TYPE_ROTATION_VECTOR` output jitters by `±1–3°` even at rest, which produces a visibly twitchy compass dial. iOS's `CLLocationManager` filters internally; Android does not. The library applies a circular EMA low-pass filter on `(sin θ, cos θ)` (handles `359°→0°` wraparound cleanly) before delivering samples, with `α = 0.2` by default — the same value used in [phishman3579/android-compass](https://github.com/phishman3579/android-compass/blob/master/src/com/jwetherell/compass/common/LowPassFilter.java) and within the range used by [Trail Sense](https://github.com/kylecorry31/Trail-Sense)'s production compass code.
+Android's raw accelerometer + magnetometer heading jitters by `±1–3°` even at rest. iOS's `CLLocationManager` filters internally; Android does not. The library applies a circular EMA low-pass filter on `(sin θ, cos θ)` (handles `359°→0°` wraparound cleanly) before delivering samples, with `α = 0.2` by default — the same value used in [phishman3579/android-compass](https://github.com/phishman3579/android-compass/blob/master/src/com/jwetherell/compass/common/LowPassFilter.java) and within the range used by [Trail Sense](https://github.com/kylecorry31/Trail-Sense)'s production compass code.
 
 Tune live:
 
@@ -200,7 +205,7 @@ function useCompass(options?: UseCompassOptions): UseCompassResult
 | `quality` | `AccuracyQuality \| null` | Coarse calibration bucket — `'high'`, `'medium'`, `'low'`, or `'unreliable'`. `null` until the first transition. Show your own calibration UI on `'unreliable'`. |
 | `interfering` | `boolean` | `true` while the raw magnetic field magnitude is outside the normal Earth band (~20–70 µT) — laptops, monitors, car engines, steel structures. |
 | `hasCompass` | `boolean` | Hardware availability — read once on first render. Render a fallback when `false`. |
-| `diagnostics` | `SensorDiagnostics \| undefined` | Which sensor backs the readings on this device (`rotationVector`, `geomagneticRotationVector`, or `coreLocation`). Useful for explaining quality differences. |
+| `diagnostics` | `SensorDiagnostics \| undefined` | Which sensor backs the readings on this device (`magnetometer` on Android, `coreLocation` on iOS). Useful for explaining quality differences. |
 
 For non-React state managers, lower-level `addHeadingListener(cb): () => void`, `addCalibrationListener(cb): () => void`, and `addInterferenceListener(cb): () => void` are also exported. They are reference-counted: the first heading listener calls `start()`, the last unsubscribe calls `stop()`. Mixing these helpers with direct `NitroCompass.start()` / `setOnCalibrationNeeded()` / `setOnInterferenceDetected()` will clobber the multiplex's internal callback slot — pick one path.
 
@@ -236,7 +241,7 @@ The same pattern is used in [example/components/Compass.tsx](./example/component
 ## Permissions
 
 - **iOS**: requires `NSLocationWhenInUseUsageDescription` in `Info.plist`. `CLLocationManager` only emits headings when location permission is granted.
-- **Android**: no permission required for the rotation-vector sensor.
+- **Android**: no permission required for the magnetometer or accelerometer.
 
 ## Example app
 
@@ -275,7 +280,7 @@ The example imports `NitroCompass` directly from the workspace `src/` (via Metro
 
 ## Acknowledgments
 
-The Android rotation-vector pattern (sensor fusion, surface-rotation remapping, `getOrientation` extraction) is adapted from the MIT-licensed [Andromeda](https://github.com/kylecorry31/andromeda) sensor library by Kyle Corry, which powers the [Trail Sense](https://github.com/kylecorry31/Trail-Sense) wilderness navigation app.
+The Android sensor pattern (raw mag + accel fusion via `getRotationMatrix`, surface-rotation remapping, `getOrientation` extraction, EMA on `(sin θ, cos θ)`) is adapted from the MIT-licensed [Andromeda](https://github.com/kylecorry31/andromeda) sensor library by Kyle Corry, which powers the [Trail Sense](https://github.com/kylecorry31/Trail-Sense) wilderness navigation app.
 
 Bootstrapped with [create-nitro-module](https://github.com/patrickkabwe/create-nitro-module).
 

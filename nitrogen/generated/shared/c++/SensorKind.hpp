@@ -29,9 +29,10 @@ namespace margelo::nitro::nitrocompass {
    * An enum which can be represented as a JavaScript union (SensorKind).
    */
   enum class SensorKind {
-    ROTATIONVECTOR      SWIFT_NAME(rotationvector) = 0,
-    GEOMAGNETICROTATIONVECTOR      SWIFT_NAME(geomagneticrotationvector) = 1,
-    CORELOCATION      SWIFT_NAME(corelocation) = 2,
+    MAGNETOMETER      SWIFT_NAME(magnetometer) = 0,
+    CORELOCATION      SWIFT_NAME(corelocation) = 1,
+    ROTATIONVECTOR      SWIFT_NAME(rotationvector) = 2,
+    GEOMAGNETICROTATIONVECTOR      SWIFT_NAME(geomagneticrotationvector) = 3,
   } CLOSED_ENUM;
 
 } // namespace margelo::nitro::nitrocompass
@@ -44,18 +45,20 @@ namespace margelo::nitro {
     static inline margelo::nitro::nitrocompass::SensorKind fromJSI(jsi::Runtime& runtime, const jsi::Value& arg) {
       std::string unionValue = JSIConverter<std::string>::fromJSI(runtime, arg);
       switch (hashString(unionValue.c_str(), unionValue.size())) {
+        case hashString("magnetometer"): return margelo::nitro::nitrocompass::SensorKind::MAGNETOMETER;
+        case hashString("coreLocation"): return margelo::nitro::nitrocompass::SensorKind::CORELOCATION;
         case hashString("rotationVector"): return margelo::nitro::nitrocompass::SensorKind::ROTATIONVECTOR;
         case hashString("geomagneticRotationVector"): return margelo::nitro::nitrocompass::SensorKind::GEOMAGNETICROTATIONVECTOR;
-        case hashString("coreLocation"): return margelo::nitro::nitrocompass::SensorKind::CORELOCATION;
         default: [[unlikely]]
           throw std::invalid_argument("Cannot convert \"" + unionValue + "\" to enum SensorKind - invalid value!");
       }
     }
     static inline jsi::Value toJSI(jsi::Runtime& runtime, margelo::nitro::nitrocompass::SensorKind arg) {
       switch (arg) {
+        case margelo::nitro::nitrocompass::SensorKind::MAGNETOMETER: return JSIConverter<std::string>::toJSI(runtime, "magnetometer");
+        case margelo::nitro::nitrocompass::SensorKind::CORELOCATION: return JSIConverter<std::string>::toJSI(runtime, "coreLocation");
         case margelo::nitro::nitrocompass::SensorKind::ROTATIONVECTOR: return JSIConverter<std::string>::toJSI(runtime, "rotationVector");
         case margelo::nitro::nitrocompass::SensorKind::GEOMAGNETICROTATIONVECTOR: return JSIConverter<std::string>::toJSI(runtime, "geomagneticRotationVector");
-        case margelo::nitro::nitrocompass::SensorKind::CORELOCATION: return JSIConverter<std::string>::toJSI(runtime, "coreLocation");
         default: [[unlikely]]
           throw std::invalid_argument("Cannot convert SensorKind to JS - invalid value: "
                                     + std::to_string(static_cast<int>(arg)) + "!");
@@ -67,9 +70,10 @@ namespace margelo::nitro {
       }
       std::string unionValue = JSIConverter<std::string>::fromJSI(runtime, value);
       switch (hashString(unionValue.c_str(), unionValue.size())) {
+        case hashString("magnetometer"):
+        case hashString("coreLocation"):
         case hashString("rotationVector"):
         case hashString("geomagneticRotationVector"):
-        case hashString("coreLocation"):
           return true;
         default:
           return false;

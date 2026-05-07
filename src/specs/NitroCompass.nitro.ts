@@ -2,7 +2,7 @@ import type { HybridObject } from 'react-native-nitro-modules'
 
 /**
  * One compass heading sample, delivered to the JS callback registered with
- * `start()`. Both fields are in degrees.
+ * `start()`. Angular fields are in degrees; field strength is in microtesla.
  *
  * - `heading`: heading clockwise from north, in `[0, 360)`. Magnetic by
  *   default; if you call `setDeclination(deg)` the offset is applied
@@ -10,13 +10,19 @@ import type { HybridObject } from 'react-native-nitro-modules'
  *   `getCurrentHeading()`).
  * - `accuracy`: estimated heading uncertainty in degrees, or `-1` when the
  *   platform has not yet reported a usable accuracy. Smaller is better.
- *   On Android this is read from `event.values[4]` of the rotation-vector
- *   sensor when available, otherwise mapped from `SensorManager.SENSOR_STATUS_*`.
- *   On iOS this is `CLHeading.headingAccuracy`.
+ *   On Android, mapped from the magnetometer's `SENSOR_STATUS_*` accuracy
+ *   bucket (the figure-8 calibration signal). On iOS this is
+ *   `CLHeading.headingAccuracy`.
+ * - `fieldStrengthMicroTesla`: magnitude of the local magnetic field in
+ *   microteslas (µT), or `-1` when no reading is available yet. Earth's
+ *   field is normally 25–65 µT; values well outside this band signal
+ *   external interference (laptops, monitors, magnets, metal). Useful
+ *   for rendering a "strength" meter à la consumer compass apps.
  */
 export interface CompassSample {
   heading: number
   accuracy: number
+  fieldStrengthMicroTesla: number
 }
 
 /**
@@ -34,22 +40,86 @@ export type AccuracyQuality = 'high' | 'medium' | 'low' | 'unreliable'
 /**
  * Identifies which underlying sensor / framework is producing headings.
  *
- * - `rotationVector` — Android `Sensor.TYPE_ROTATION_VECTOR` (gyro + accel
- *   + magnetometer fused). Best quality.
- * - `geomagneticRotationVector` — Android
- *   `Sensor.TYPE_GEOMAGNETIC_ROTATION_VECTOR` (accel + magnetometer only).
- *   Used as fallback on gyroless / budget devices; lower update rate and
- *   more susceptible to magnetic interference.
+ * - `magnetometer` — Android raw `TYPE_MAGNETIC_FIELD` + `TYPE_ACCELEROMETER`
+ *   computed via `SensorManager.getRotationMatrix()` + `getOrientation()`.
+ *   Stateless: snaps back instantly when external interference (magnets,
+ *   electronics) is removed, instead of waiting for OS-level fusion to
+ *   re-converge.
  * - `coreLocation` — iOS `CLLocationManager` heading. Apple's stack
  *   handles fusion natively.
+ * - `rotationVector` / `geomagneticRotationVector` — legacy values kept
+ *   in the union for source compatibility; no longer returned by current
+ *   builds.
  */
 export type SensorKind =
+  | 'magnetometer'
+  | 'coreLocation'
   | 'rotationVector'
   | 'geomagneticRotationVector'
-  | 'coreLocation'
 
 export interface SensorDiagnostics {
   sensor: SensorKind
+}
+
+/**
+ * Live introspection of the native compass pipeline. Use for
+ * diagnosing user-reported issues (heading wrong, banner stuck,
+ * compass frozen) — none of these fields are needed for normal
+ * operation.
+ *
+ * Numeric fields use `-1` (or `NaN` for `fusedYawDeg`) as a
+ * "not-applicable / not-yet-available" sentinel; consumers should
+ * treat those as missing rather than literal values. Most fields
+ * are Android-only — iOS uses `CLLocationManager` and doesn't expose
+ * the underlying state, so the iOS implementation reports a minimal
+ * subset (`lastFieldMicroTesla`, `interferenceActive`).
+ */
+export interface DebugInfo {
+  /**
+   * Whether the library currently considers external interference to
+   * be active. Driven by field-magnitude band checks AND (Android,
+   * uncalibrated mag only) recent OS hard-iron-bias jumps.
+   */
+  interferenceActive: boolean
+  /**
+   * Milliseconds since the most recent OS hard-iron bias jump on
+   * Android's uncalibrated magnetometer. `-1` if never seen.
+   * iOS / fallback path: always `-1`.
+   */
+  msSinceLastBiasJump: number
+  /**
+   * The expected magnetic field magnitude (µT) at the user's
+   * location, derived from `setLocation()`. Used to tighten the
+   * interference band. `-1` if `setLocation()` hasn't been called
+   * with valid coordinates.
+   */
+  expectedFieldMicroTesla: number
+  /**
+   * Most recent measured field magnitude (µT) — same value surfaced
+   * on `CompassSample.fieldStrengthMicroTesla`. `-1` if no reading.
+   */
+  lastFieldMicroTesla: number
+  /**
+   * Current value of the gyro-corrected fused yaw (deg, [0, 360)).
+   * `NaN` before any sample has been processed, or on iOS where
+   * gyro fusion is handled inside CLLocationManager.
+   */
+  fusedYawDeg: number
+  /**
+   * Latest yaw rate (deg/s) derived from game-rotation-vector
+   * deltas. Used to drive the adaptive input low-pass filter.
+   * `0` if game-RV is unavailable / hasn't fired yet.
+   */
+  lastYawRateDegPerS: number
+  /** Whether `TYPE_GAME_ROTATION_VECTOR` is currently producing events. Always `false` on iOS. */
+  hasGameRotationVector: boolean
+  /**
+   * Whether Android is sourcing magnetometer data from
+   * `TYPE_MAGNETIC_FIELD_UNCALIBRATED` (preferred — bias-jump
+   * detection works) vs. the `TYPE_MAGNETIC_FIELD` fallback. Always
+   * `false` on iOS.
+   */
+  usingUncalibratedMag: boolean
 }
 
 /**
@@ -130,8 +200,16 @@ export interface NitroCompass extends HybridObject<{ ios: 'swift'; android: 'kot
   getDiagnostics(): SensorDiagnostics | undefined
 
   /**
+   * Snapshot of the internal compass pipeline. Only intended for
+   * diagnosing user-reported issues — see {@link DebugInfo} for
+   * field-by-field semantics. Cheap to call (no allocations beyond
+   * the returned object); poll at any rate the host UI prefers.
+   */
+  getDebugInfo(): DebugInfo
+
+  /**
    * Whether the device has the hardware required for a compass reading.
-   * Android: a rotation-vector sensor (fused or geomagnetic) is present.
+   * Android: both a magnetometer and an accelerometer are present.
    * iOS: `CLLocationManager.headingAvailable()`.
    */
   hasCompass(): boolean
@@ -150,6 +228,25 @@ export interface NitroCompass extends HybridObject<{ ios: 'swift'; android: 'kot
    * model like `geomagnetism` keyed on the user's lat/lon.
    */
   setDeclination(degrees: number): void
+
+  /**
+   * Set the user's geographic location for a tighter interference
+   * gate. With a valid location, the library replaces the generic
+   * 20–70 µT "Earth field band" with `expectedField ± 15 µT`, where
+   * `expectedField` comes from the WMM2025 model shipped on Android
+   * (`GeomagneticField`). This catches weak interference the generic
+   * band misses — especially at high/low latitudes where Earth's
+   * field is naturally near or above 60 µT.
+   *
+   * Pass `NaN` for either coordinate, or values outside the valid
+   * range (`|lat| > 90`, `|lon| > 180`), to revert to the generic
+   * band. Survives across `start`/`stop`.
+   *
+   * **No-op on iOS.** `CLLocationManager` uses GPS-derived location
+   * internally for all field-related reasoning; layering our own
+   * lookup on top would be redundant.
+   */
+  setLocation(latitude: number, longitude: number): void
 
   /**
    * Register a callback fired when the calibration bucket transitions.
@@ -190,6 +287,25 @@ export interface NitroCompass extends HybridObject<{ ios: 'swift'; android: 'kot
    * `start()`; takes effect immediately.
    */
   setPauseOnBackground(enabled: boolean): void
+
+  /**
+   * Force a best-effort sensor recalibration. Resets internal smoothing
+   * and quality-bucket state, then re-registers the underlying sensor
+   * listeners. On many Android OEMs the re-registration nudges the
+   * magnetometer driver to re-evaluate soft/hard-iron calibration, which
+   * unsticks an `UNRELIABLE` bucket that's lingering after a strong
+   * magnetic excursion (e.g. another phone placed on top, then removed).
+   *
+   * On iOS this dismisses the system heading-calibration overlay and
+   * stops/restarts heading updates. Apple's stack handles the
+   * underlying calibration internally.
+   *
+   * Idempotent — safe to call when not started, in which case it's a
+   * no-op. Calibration recovery still requires the user to move the
+   * device through varying orientations; this method just clears the
+   * library's cached state so progress is reflected promptly.
+   */
+  recalibrate(): void
 
   /**
    * Read the current platform permission state synchronously.

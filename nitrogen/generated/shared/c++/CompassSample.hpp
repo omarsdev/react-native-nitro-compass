@@ -41,10 +41,11 @@ namespace margelo::nitro::nitrocompass {
   public:
     double heading     SWIFT_PRIVATE;
     double accuracy     SWIFT_PRIVATE;
+    double fieldStrengthMicroTesla     SWIFT_PRIVATE;
 
   public:
     CompassSample() = default;
-    explicit CompassSample(double heading, double accuracy): heading(heading), accuracy(accuracy) {}
+    explicit CompassSample(double heading, double accuracy, double fieldStrengthMicroTesla): heading(heading), accuracy(accuracy), fieldStrengthMicroTesla(fieldStrengthMicroTesla) {}
 
   public:
     friend bool operator==(const CompassSample& lhs, const CompassSample& rhs) = default;
@@ -61,13 +62,15 @@ namespace margelo::nitro {
       jsi::Object obj = arg.asObject(runtime);
       return margelo::nitro::nitrocompass::CompassSample(
         JSIConverter<double>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "heading"))),
-        JSIConverter<double>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "accuracy")))
+        JSIConverter<double>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "accuracy"))),
+        JSIConverter<double>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "fieldStrengthMicroTesla")))
       );
     }
     static inline jsi::Value toJSI(jsi::Runtime& runtime, const margelo::nitro::nitrocompass::CompassSample& arg) {
       jsi::Object obj(runtime);
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "heading"), JSIConverter<double>::toJSI(runtime, arg.heading));
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "accuracy"), JSIConverter<double>::toJSI(runtime, arg.accuracy));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "fieldStrengthMicroTesla"), JSIConverter<double>::toJSI(runtime, arg.fieldStrengthMicroTesla));
       return obj;
     }
     static inline bool canConvert(jsi::Runtime& runtime, const jsi::Value& value) {
@@ -80,6 +83,7 @@ namespace margelo::nitro {
       }
       if (!JSIConverter<double>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "heading")))) return false;
       if (!JSIConverter<double>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "accuracy")))) return false;
+      if (!JSIConverter<double>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "fieldStrengthMicroTesla")))) return false;
       return true;
     }
   };

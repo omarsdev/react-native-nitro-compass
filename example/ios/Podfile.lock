@@ -3,7 +3,7 @@ PODS:
   - hermes-engine (250829098.0.10):
     - hermes-engine/Pre-built (= 250829098.0.10)
   - hermes-engine/Pre-built (250829098.0.10)
-  - NitroCompass (1.0.9):
+  - NitroCompass (1.1.0):
     - hermes-engine
     - NitroModules
     - RCTRequired
@@ -2296,7 +2296,7 @@ EXTERNAL SOURCES:
 SPEC CHECKSUMS:
   FBLazyVector: 24e62c765683b8d89006a88a2c8f5cf019f0074d
   hermes-engine: 04a5b2778ea5339ad1f4296a704cdee336b1d4eb
-  NitroCompass: cf36f9870fa5e4216c433c581fd033b8fcc12917
+  NitroCompass: 59f0648cf86413b440949caa9f7a324e67cead2d
   NitroModules: c41b7b778d6557f1e517a80ec681a670321fa001
   RCTDeprecation: a4c521821fab57cbb125b36effe84d897d0dfa12
   RCTRequired: 9f3a7e5645d4bc3f551593de7550bb66ab6e42bc
