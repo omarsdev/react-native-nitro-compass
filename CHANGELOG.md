@@ -1,3 +1,9 @@
+## [1.0.7](https://github.com/omarsdev/react-native-nitro-compass/compare/v1.0.6...v1.0.7) (2026-05-07)
+
+### 🐛 Bug Fixes
+
+* **android:** pin AGP to 8.12.0 to match RN gradle plugin ([7222b6a](https://github.com/omarsdev/react-native-nitro-compass/commit/7222b6a42f0608e339a2e713607c79526e1780c9))
+
 ## [1.0.6](https://github.com/omarsdev/react-native-nitro-compass/compare/v1.0.5...v1.0.6) (2026-05-07)
 
 ### 💨 Performance Improvements
