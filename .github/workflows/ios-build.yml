@@ -60,10 +60,6 @@ jobs:
       - name: Install dependencies (bun)
         run: bun install
 
-      - name: Install example dependencies (bun)
-        working-directory: example
-        run: bun install
-
       - name: Setup Ruby (bundle)
         uses: ruby/setup-ruby@v1
         with:
