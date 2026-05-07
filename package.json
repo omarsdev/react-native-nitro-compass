@@ -1,6 +1,6 @@
 {
   "name": "react-native-nitro-compass",
-  "version": "0.1.2",
+  "version": "1.0.0",
   "engines": {
     "node": ">=18"
   },
