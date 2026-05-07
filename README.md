@@ -96,7 +96,7 @@ NitroCompass.setOnInterferenceDetected((interfering) => {
 })
 ```
 
-Android uses `Sensor.TYPE_MAGNETIC_FIELD` at ~5 Hz. iOS uses raw (uncalibrated) magnetometer data via CoreMotion; the magnitude includes some device-internal bias and may differ from Android by a few µT, but the transition behaviour matches. Only triggered while `start()` is active; no debounce, so brief excursions still fire.
+Android uses `Sensor.TYPE_MAGNETIC_FIELD` at ~5 Hz. iOS uses `CMDeviceMotion.magneticField` (calibrated, with the device's own hard-iron bias subtracted in real time) — note that no transitions are reported on iOS until CoreMotion's bias estimate converges, typically a second or two of normal device movement. Only triggered while `start()` is active; no debounce, so brief excursions still fire.
 
 ### Magnetic vs true north
 

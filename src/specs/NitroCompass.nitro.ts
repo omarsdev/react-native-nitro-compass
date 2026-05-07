@@ -142,10 +142,12 @@ export interface NitroCompass extends HybridObject<{ ios: 'swift'; android: 'kot
    * The callback is invoked on the JS thread. Only meaningful while
    * `start()` is active.
    *
-   * iOS uses raw (uncalibrated) magnetometer data via CoreMotion, which
-   * includes some device-internal bias; the transition behaviour
-   * matches Android's `Sensor.TYPE_MAGNETIC_FIELD`, but absolute
-   * magnitudes can differ by a few µT.
+   * iOS uses `CMDeviceMotion.magneticField` — the calibrated field
+   * with the device's own hard-iron bias subtracted in real time.
+   * No transitions are reported until CoreMotion's bias estimate
+   * converges (a second or two of normal device movement); that's
+   * required, otherwise raw readings dominated by internal bias
+   * would fire false alarms continuously.
    */
   setOnInterferenceDetected(onChange: (interferenceDetected: boolean) => void): void
 

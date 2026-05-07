@@ -197,18 +197,22 @@ class HybridNitroCompass: HybridNitroCompassSpec {
   }
 
   private func startMagnetometerIfAvailable() {
-    guard motionManager.isMagnetometerAvailable, !motionManager.isMagnetometerActive else { return }
-    motionManager.magnetometerUpdateInterval = 0.2 // 5Hz — only transitions matter
-    motionManager.startMagnetometerUpdates(to: motionQueue) { [weak self] data, _ in
-      guard let self = self, let f = data?.magneticField else { return }
+    guard motionManager.isDeviceMotionAvailable,
+          !motionManager.isDeviceMotionActive else { return }
+    motionManager.deviceMotionUpdateInterval = 0.2 // 5Hz
+    motionManager.startDeviceMotionUpdates(to: motionQueue) { [weak self] motion, _ in
+      guard let self = self, let m = motion else { return }
+      let cal = m.magneticField
+      if cal.accuracy == .uncalibrated { return }
+      let f = cal.field
       let magnitude = sqrt(f.x * f.x + f.y * f.y + f.z * f.z)
       self.evaluateInterference(magnitude: magnitude)
     }
   }
 
   private func stopMagnetometerIfRunning() {
-    if motionManager.isMagnetometerActive {
-      motionManager.stopMagnetometerUpdates()
+    if motionManager.isDeviceMotionActive {
+      motionManager.stopDeviceMotionUpdates()
     }
   }
 
