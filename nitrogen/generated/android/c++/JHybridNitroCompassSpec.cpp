@@ -87,6 +87,10 @@ namespace margelo::nitro::nitrocompass {
     static const auto method = _javaPart->javaClassStatic()->getMethod<void(double /* degrees */)>("setFilter");
     method(_javaPart, degrees);
   }
+  void JHybridNitroCompassSpec::setSmoothing(double alpha) {
+    static const auto method = _javaPart->javaClassStatic()->getMethod<void(double /* alpha */)>("setSmoothing");
+    method(_javaPart, alpha);
+  }
   std::optional<SensorDiagnostics> JHybridNitroCompassSpec::getDiagnostics() {
     static const auto method = _javaPart->javaClassStatic()->getMethod<jni::local_ref<JSensorDiagnostics>()>("getDiagnostics");
     auto __result = method(_javaPart);

@@ -58,6 +58,7 @@ namespace margelo::nitro::nitrocompass {
     void stop() override;
     bool isStarted() override;
     void setFilter(double degrees) override;
+    void setSmoothing(double alpha) override;
     std::optional<SensorDiagnostics> getDiagnostics() override;
     bool hasCompass() override;
     std::optional<CompassSample> getCurrentHeading() override;

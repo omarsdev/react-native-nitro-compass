@@ -17,6 +17,7 @@ public protocol HybridNitroCompassSpec_protocol: HybridObject {
   func stop() throws -> Void
   func isStarted() throws -> Bool
   func setFilter(degrees: Double) throws -> Void
+  func setSmoothing(alpha: Double) throws -> Void
   func getDiagnostics() throws -> SensorDiagnostics?
   func hasCompass() throws -> Bool
   func getCurrentHeading() throws -> CompassSample?

@@ -65,6 +65,7 @@ namespace margelo::nitro::nitrocompass {
       virtual void stop() = 0;
       virtual bool isStarted() = 0;
       virtual void setFilter(double degrees) = 0;
+      virtual void setSmoothing(double alpha) = 0;
       virtual std::optional<SensorDiagnostics> getDiagnostics() = 0;
       virtual bool hasCompass() = 0;
       virtual std::optional<CompassSample> getCurrentHeading() = 0;

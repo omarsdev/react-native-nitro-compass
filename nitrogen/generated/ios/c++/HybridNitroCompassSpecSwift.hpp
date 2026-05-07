@@ -108,6 +108,12 @@ namespace margelo::nitro::nitrocompass {
         std::rethrow_exception(__result.error());
       }
     }
+    inline void setSmoothing(double alpha) override {
+      auto __result = _swiftPart.setSmoothing(std::forward<decltype(alpha)>(alpha));
+      if (__result.hasError()) [[unlikely]] {
+        std::rethrow_exception(__result.error());
+      }
+    }
     inline std::optional<SensorDiagnostics> getDiagnostics() override {
       auto __result = _swiftPart.getDiagnostics();
       if (__result.hasError()) [[unlikely]] {

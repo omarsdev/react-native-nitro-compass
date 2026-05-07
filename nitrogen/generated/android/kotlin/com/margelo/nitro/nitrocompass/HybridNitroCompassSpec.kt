@@ -52,6 +52,10 @@ abstract class HybridNitroCompassSpec: HybridObject() {
   
   @DoNotStrip
   @Keep
+  abstract fun setSmoothing(alpha: Double): Unit
+  
+  @DoNotStrip
+  @Keep
   abstract fun getDiagnostics(): SensorDiagnostics?
   
   @DoNotStrip

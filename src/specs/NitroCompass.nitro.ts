@@ -106,6 +106,23 @@ export interface NitroCompass extends HybridObject<{ ios: 'swift'; android: 'kot
   setFilter(degrees: number): void
 
   /**
+   * Set the low-pass smoothing factor (EMA α) applied to heading samples
+   * before delivery. Range `(0, 1]`. Default `0.2` ≈ 100ms time constant
+   * at Android's typical 50 Hz sample rate.
+   *
+   * - `1.0` disables smoothing (every sample passes through unfiltered).
+   * - Smaller values smooth more — eliminates rotation-vector jitter at
+   *   the cost of a small amount of latency.
+   *
+   * Implemented as a circular EMA on `(sin θ, cos θ)` so the 359°→0°
+   * wraparound doesn't bias the average. Survives `start`/`stop`.
+   *
+   * **No-op on iOS.** `CLLocationManager` filters heading internally with
+   * Apple's own algorithm; layering EMA on top would only add latency.
+   */
+  setSmoothing(alpha: number): void
+
+  /**
    * Describe which underlying sensor / framework would produce headings on
    * this device. Returns `undefined` if the device has no compass hardware
    * (equivalent to `hasCompass() === false`). Safe to call before `start()`.

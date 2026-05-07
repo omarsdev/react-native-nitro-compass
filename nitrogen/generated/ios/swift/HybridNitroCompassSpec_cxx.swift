@@ -175,6 +175,17 @@ open class HybridNitroCompassSpec_cxx {
   }
   
   @inline(__always)
+  public final func setSmoothing(alpha: Double) -> bridge.Result_void_ {
+    do {
+      try self.__implementation.setSmoothing(alpha: alpha)
+      return bridge.create_Result_void_()
+    } catch (let __error) {
+      let __exceptionPtr = __error.toCpp()
+      return bridge.create_Result_void_(__exceptionPtr)
+    }
+  }
+  
+  @inline(__always)
   public final func getDiagnostics() -> bridge.Result_std__optional_SensorDiagnostics__ {
     do {
       let __result = try self.__implementation.getDiagnostics()
