@@ -1,3 +1,11 @@
+## [1.0.3](https://github.com/omarsdev/react-native-nitro-compass/compare/v1.0.2...v1.0.3) (2026-05-07)
+
+### 🛠️ Other changes
+
+* **deps:** bump actions/cache from 4 to 5 ([#1](https://github.com/omarsdev/react-native-nitro-compass/issues/1)) ([d55abd7](https://github.com/omarsdev/react-native-nitro-compass/commit/d55abd70ad2cc728e3357f22dc705b58614241ca))
+* **deps:** bump actions/checkout from 4 to 6 ([#3](https://github.com/omarsdev/react-native-nitro-compass/issues/3)) ([375e782](https://github.com/omarsdev/react-native-nitro-compass/commit/375e78263326163d724d43d0b5effec69e975fd5))
+* **deps:** bump concurrent-ruby from 1.3.3 to 1.3.6 in /example ([#4](https://github.com/omarsdev/react-native-nitro-compass/issues/4)) ([2f44e62](https://github.com/omarsdev/react-native-nitro-compass/commit/2f44e62a089eac9649f1f8baadd7c02e57caca32))
+
 ## [1.0.2](https://github.com/omarsdev/react-native-nitro-compass/compare/v1.0.1...v1.0.2) (2026-05-07)
 
 ### 🛠️ Other changes
