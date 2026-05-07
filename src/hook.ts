@@ -20,6 +20,16 @@ export interface UseCompassOptions {
    */
   filterDegrees?: number
   /**
+   * Low-pass smoothing factor (EMA α) applied to heading samples.
+   * Range `(0, 1]`. Default `0.2` ≈ 100ms time constant at typical
+   * Android sample rates. `1.0` disables smoothing. Smaller values
+   * smooth more (kills jitter, adds a touch of latency).
+   *
+   * No-op on iOS — CLLocationManager filters internally.
+   * Shared global state — last-write-wins.
+   */
+  smoothingAlpha?: number
+  /**
    * Magnetic-to-true offset in signed degrees. Default `0` (magnetic).
    * Pull from a model like `geomagnetism` keyed on the user's lat/lon.
    * Like `filterDegrees`, this is shared global state.
@@ -64,6 +74,7 @@ export function useCompass(
 ): UseCompassResult {
   const {
     filterDegrees = 1,
+    smoothingAlpha = 0.2,
     declination = 0,
     pauseOnBackground = true,
     enabled = true,
@@ -85,6 +96,10 @@ export function useCompass(
   useEffect(() => {
     NitroCompass.setFilter(filterDegrees)
   }, [filterDegrees])
+
+  useEffect(() => {
+    NitroCompass.setSmoothing(smoothingAlpha)
+  }, [smoothingAlpha])
 
   useEffect(() => {
     NitroCompass.setDeclination(declination)
