@@ -1,3 +1,9 @@
+## [1.0.8](https://github.com/omarsdev/react-native-nitro-compass/compare/v1.0.7...v1.0.8) (2026-05-07)
+
+### 🛠️ Other changes
+
+* **npm:** standardize repo metadata for GitHub package linking ([72f7143](https://github.com/omarsdev/react-native-nitro-compass/commit/72f7143e795c2cdcf267be07dc457db23ca93659))
+
 ## [1.0.7](https://github.com/omarsdev/react-native-nitro-compass/compare/v1.0.6...v1.0.7) (2026-05-07)
 
 ### 🐛 Bug Fixes
