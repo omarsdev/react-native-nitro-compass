@@ -15,17 +15,19 @@ import {Compass} from './components/Compass';
 import {Controls} from './components/Controls';
 import {Header} from './components/Header';
 import {Readout} from './components/Readout';
-import {DEMO_DECLINATION_DEG, type Filter} from './utils';
+import {DEMO_DECLINATION_DEG, type Filter, type Smoothing} from './utils';
 import {styles} from './styles';
 
 function CompassScreen() {
   const [running, setRunning] = useState(false);
   const [filter, setFilter] = useState<Filter>(1);
+  const [smoothing, setSmoothing] = useState<Smoothing>(0.2);
   const [pauseOnBackground, setPauseOnBackground] = useState(true);
   const [trueNorthDemo, setTrueNorthDemo] = useState(false);
 
   const {reading, quality, interfering, hasCompass, diagnostics} = useCompass({
     filterDegrees: filter,
+    smoothingAlpha: smoothing,
     declination: trueNorthDemo ? DEMO_DECLINATION_DEG : 0,
     pauseOnBackground,
     enabled: running,
@@ -50,6 +52,8 @@ function CompassScreen() {
       <Controls
         filter={filter}
         onFilterChange={setFilter}
+        smoothing={smoothing}
+        onSmoothingChange={setSmoothing}
         pauseOnBackground={pauseOnBackground}
         onPauseOnBackgroundChange={setPauseOnBackground}
         trueNorthDemo={trueNorthDemo}

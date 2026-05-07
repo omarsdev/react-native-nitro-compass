@@ -36,6 +36,18 @@ export const qualityColor = (q: AccuracyQuality | null) => {
 export const FILTERS = [0, 1, 2, 5] as const;
 export type Filter = (typeof FILTERS)[number];
 
+// Smoothing presets for the example UI. The α maps directly to
+// NitroCompass.setSmoothing() — Android applies a circular EMA on
+// (sin θ, cos θ) of the heading; iOS ignores it (CLLocationManager
+// already filters internally). 1.0 disables smoothing entirely.
+export const SMOOTHINGS = [
+  {label: 'off', alpha: 1.0},
+  {label: 'light', alpha: 0.5},
+  {label: 'normal', alpha: 0.2},
+  {label: 'heavy', alpha: 0.05},
+] as const;
+export type Smoothing = (typeof SMOOTHINGS)[number]['alpha'];
+
 export const TICK_DEGS = [
   0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330,
 ] as const;
