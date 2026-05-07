@@ -183,6 +183,11 @@ class HybridNitroCompass: HybridNitroCompassSpec {
     }
   }
 
+  // CLLocationManager filters heading internally with Apple's own
+  // algorithm; layering an EMA on top would only add latency. Kept as a
+  // no-op so cross-platform JS callers can call it unconditionally.
+  func setSmoothing(alpha: Double) throws {}
+
   func getDiagnostics() throws -> SensorDiagnostics? {
     guard CLLocationManager.headingAvailable() else { return nil }
     return SensorDiagnostics(sensor: .corelocation)
@@ -363,14 +368,19 @@ class HybridNitroCompass: HybridNitroCompassSpec {
     let sample = CompassSample(heading: heading, accuracy: accuracy)
     lastSample = sample
 
+    // CLLocationManager.headingAccuracy is conservative — even a
+    // well-calibrated compass usually reports 5–15°, and values under
+    // 5° are basically never produced. Bucket against the realistic
+    // distribution so `.high` is reachable, mirroring how Android maps
+    // SENSOR_STATUS_ACCURACY_HIGH.
     let quality: AccuracyQuality
     if accuracy < 0 {
       quality = .unreliable
-    } else if accuracy < 5 {
+    } else if accuracy < 20 {
       quality = .high
-    } else if accuracy < 15 {
+    } else if accuracy < 35 {
       quality = .medium
-    } else if accuracy < 30 {
+    } else if accuracy < 55 {
       quality = .low
     } else {
       quality = .unreliable
