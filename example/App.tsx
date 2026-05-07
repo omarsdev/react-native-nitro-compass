@@ -41,7 +41,7 @@ function CompassScreen() {
         <Text style={styles.error}>This device has no compass hardware.</Text>
       )}
 
-      <Compass heading={reading?.heading ?? null} />
+      <Compass enabled={running} />
 
       <Readout reading={reading} quality={quality} />
 
