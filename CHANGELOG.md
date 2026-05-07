@@ -1,3 +1,9 @@
+## [1.0.1](https://github.com/omarsdev/react-native-nitro-compass/compare/v1.0.0...v1.0.1) (2026-05-07)
+
+### 🛠️ Other changes
+
+* **deps-dev:** bump react-native from 0.84.1 to 0.85.3 ([9fe69b4](https://github.com/omarsdev/react-native-nitro-compass/commit/9fe69b4e682aef4cd97b57f36918fb20f27a5d2e))
+
 ## 1.0.0 (2026-05-07)
 
 ### ✨ Features
