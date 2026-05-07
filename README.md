@@ -140,6 +140,89 @@ On **iOS**, detection uses `CMDeviceMotion.magneticField` (calibrated, with the 
 
 Only triggered while `start()` is active; no debounce, so brief excursions still fire.
 
+### Location-aware interference (recipe)
+
+`setLocation(lat, lon)` tightens the Android interference gate from the generic 20–70 µT band to `expectedField ± 15 µT`, where `expectedField` comes from the WMM2025 model bundled in `GeomagneticField`. This catches weak interference at high or low latitudes where Earth's natural field is near or above 60 µT — exactly the cases where the generic band is too loose to detect, say, another phone placed nearby.
+
+Pair it with any geolocation library — the example below uses [`react-native-geolocation-service`](https://github.com/Agontuk/react-native-geolocation-service):
+
+```tsx
+import { useEffect } from 'react'
+import { Platform, PermissionsAndroid } from 'react-native'
+import Geolocation from 'react-native-geolocation-service'
+import { useCompass } from 'react-native-nitro-compass'
+
+async function ensureLocationPermission(): Promise<boolean> {
+  if (Platform.OS === 'android') {
+    const granted = await PermissionsAndroid.request(
+      PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION,
+    )
+    return granted === PermissionsAndroid.RESULTS.GRANTED
+  }
+  // iOS — useCompass already prompts for location auth for the compass
+  // itself, so a granted permission lets us read position too.
+  return true
+}
+
+function CompassScreen() {
+  const compass = useCompass({ enabled: true })
+  const { setLocation } = compass
+
+  useEffect(() => {
+    let cancelled = false
+    let watchId: number | undefined
+
+    void (async () => {
+      if (!(await ensureLocationPermission()) || cancelled) return
+
+      // One-shot fix at start. Coarse accuracy is fine — Earth's
+      // field varies < 0.5 % per km, so a city-block-resolution
+      // position is more than enough for the ±15 µT tolerance.
+      Geolocation.getCurrentPosition(
+        ({ coords }) => {
+          if (!cancelled) setLocation(coords.latitude, coords.longitude)
+        },
+        () => {
+          /* swallow — falls back to the generic 20–70 µT band */
+        },
+        { enableHighAccuracy: false, timeout: 15_000, maximumAge: 60_000 },
+      )
+
+      // Optional: keep `expectedField` in sync if the user moves
+      // long-distance. A 50 km move shifts the WMM-derived field by
+      // ~0.3 µT — well inside the tolerance — so a coarse 10 km /
+      // 10 minute filter is plenty.
+      watchId = Geolocation.watchPosition(
+        ({ coords }) => {
+          if (!cancelled) setLocation(coords.latitude, coords.longitude)
+        },
+        () => {},
+        {
+          enableHighAccuracy: false,
+          distanceFilter: 10_000,
+          interval: 10 * 60 * 1000,
+        },
+      )
+    })()
+
+    return () => {
+      cancelled = true
+      if (watchId !== undefined) Geolocation.clearWatch(watchId)
+    }
+  }, [setLocation])
+
+  // …render compass.reading, compass.quality, etc.
+}
+```
+
+A few notes:
+
+- **`setLocation` from `useCompass()` has a stable identity**, so listing it in the effect dependency array is safe — it won't re-run on every compass tick.
+- **No location permission required** for the compass itself on Android (sensors are unrestricted). The location permission requested above is purely so `react-native-geolocation-service` can give you a fix; if it's denied, the compass still works — it just falls back to the generic interference band.
+- **iOS is a no-op** for `setLocation` — `CLLocationManager` already uses GPS-derived location internally for all field-related reasoning, so calling it changes nothing on iOS. The recipe still works cross-platform; it's just that on iOS the call is effectively wasted. You can guard with `if (Platform.OS === 'android')` if you'd rather skip the geolocation request entirely on iOS.
+- **One-shot vs watch**: if your app is stationary (typical phone use), the one-shot `getCurrentPosition` is enough. The `watchPosition` only matters if your user is driving / flying long distances; the field strength changes slowly enough that a coarse low-frequency watch is fine.
+- **Pass `NaN` to revert** to the generic band if the location becomes stale or the user revokes permission: `setLocation(NaN, NaN)`.
+
 ### Magnetic vs true north
 
 Headings are **magnetic** by default. You can either apply declination in JS, or let the native side do it once via `setDeclination(deg)` so every emitted sample (and `getCurrentHeading()`) is true-north.

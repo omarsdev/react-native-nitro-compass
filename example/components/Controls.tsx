@@ -2,6 +2,13 @@ import {Pressable, Switch, Text, View} from 'react-native';
 import {FILTERS, SMOOTHINGS, type Filter, type Smoothing} from '../utils';
 import {styles} from '../styles';
 
+export type LocationStatus =
+  | 'off'
+  | 'requesting'
+  | 'denied'
+  | 'unavailable'
+  | {kind: 'located'; lat: number; lon: number};
+
 interface Props {
   filter: Filter;
   onFilterChange: (f: Filter) => void;
@@ -11,6 +18,9 @@ interface Props {
   onPauseOnBackgroundChange: (b: boolean) => void;
   trueNorthDemo: boolean;
   onTrueNorthDemoChange: (b: boolean) => void;
+  useLocation: boolean;
+  onUseLocationChange: (b: boolean) => void;
+  locationStatus: LocationStatus;
 }
 
 export function Controls({
@@ -22,7 +32,20 @@ export function Controls({
   onPauseOnBackgroundChange,
   trueNorthDemo,
   onTrueNorthDemoChange,
+  useLocation,
+  onUseLocationChange,
+  locationStatus,
 }: Props) {
+  const locationSubLabel =
+    locationStatus === 'off'
+      ? 'Tightens Android interference band (no-op on iOS)'
+      : locationStatus === 'requesting'
+      ? 'Requesting location…'
+      : locationStatus === 'denied'
+      ? 'Permission denied — falling back to generic 20–70 µT band'
+      : locationStatus === 'unavailable'
+      ? 'Location unavailable — falling back to generic band'
+      : `Located at ${locationStatus.lat.toFixed(2)}, ${locationStatus.lon.toFixed(2)}`;
   return (
     <View style={styles.controls}>
       <View style={styles.row}>
@@ -79,6 +102,21 @@ export function Controls({
         <Switch
           value={pauseOnBackground}
           onValueChange={onPauseOnBackgroundChange}
+          thumbColor="#fff"
+          trackColor={{false: '#333', true: '#0a7'}}
+        />
+      </View>
+
+      <View style={styles.row}>
+        <View style={styles.locationLabelWrap}>
+          <Text style={styles.label}>Use my location</Text>
+          <Text style={styles.labelSub} numberOfLines={2}>
+            {locationSubLabel}
+          </Text>
+        </View>
+        <Switch
+          value={useLocation}
+          onValueChange={onUseLocationChange}
           thumbColor="#fff"
           trackColor={{false: '#333', true: '#0a7'}}
         />

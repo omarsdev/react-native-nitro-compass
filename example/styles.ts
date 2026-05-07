@@ -152,6 +152,10 @@ export const styles = StyleSheet.create({
   },
   label: {color: '#ddd', fontSize: 14},
   labelSub: {color: '#777', fontSize: 11, marginTop: 2},
+  // Reserve room for the wider sub-label under "Use my location" so
+  // the longer status strings ("Permission denied — falling back…")
+  // wrap cleanly without pushing the Switch off-screen.
+  locationLabelWrap: {flex: 1, paddingRight: 12},
   segmented: {
     flexDirection: 'row',
     backgroundColor: '#1c1c22',
