@@ -82,8 +82,6 @@ jobs:
         with:
           path: ~/.cocoapods/repos
           key: ${{ runner.os }}-cocoapods-repos
-          restore-keys: |
-            ${{ runner.os }}-pods-
 
       - name: Install Pods
         working-directory: example/ios
