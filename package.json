@@ -54,14 +54,20 @@
     "*.podspec",
     "README.md"
   ],
-  "repository": "https://github.com/omarsdev/react-native-nitro-compass.git",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/omarsdev/react-native-nitro-compass.git"
+  },
   "author": "Omar Sukarieh",
   "license": "MIT",
-  "bugs": "https://github.com/omarsdev/react-native-nitro-compass/issues",
+  "bugs": {
+    "url": "https://github.com/omarsdev/react-native-nitro-compass/issues"
+  },
   "homepage": "https://github.com/omarsdev/react-native-nitro-compass#readme",
   "publishConfig": {
     "access": "public",
-    "registry": "https://registry.npmjs.org/"
+    "registry": "https://registry.npmjs.org/",
+    "provenance": true
   },
   "devDependencies": {
     "@jamesacarr/eslint-formatter-github-actions": "^0.2.0",
