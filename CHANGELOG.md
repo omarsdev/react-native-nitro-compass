@@ -1,3 +1,9 @@
+## [1.0.4](https://github.com/omarsdev/react-native-nitro-compass/compare/v1.0.3...v1.0.4) (2026-05-07)
+
+### 🛠️ Other changes
+
+* **deps:** bump xcodeproj from 1.25.1 to 1.27.0 in /example ([#5](https://github.com/omarsdev/react-native-nitro-compass/issues/5)) ([48d9787](https://github.com/omarsdev/react-native-nitro-compass/commit/48d97874df728f31df929ddf00f2c799648815fe))
+
 ## [1.0.3](https://github.com/omarsdev/react-native-nitro-compass/compare/v1.0.2...v1.0.3) (2026-05-07)
 
 ### 🛠️ Other changes
