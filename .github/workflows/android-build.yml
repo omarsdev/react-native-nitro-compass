@@ -45,6 +45,10 @@ jobs:
       - name: Install dependencies (bun)
         run: bun install
 
+      - name: Install example dependencies (bun)
+        working-directory: example
+        run: bun install
+
       - name: Setup JDK 17
         uses: actions/setup-java@v5
         with:
