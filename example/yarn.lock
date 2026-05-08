@@ -5400,17 +5400,17 @@ react-native-is-edge-to-edge@^1.3.1:
   integrity sha512-NIXU/iT5+ORyCc7p0z2nnlkouYKX425vuU1OEm6bMMtWWR9yvb+Xg5AZmImTKoF9abxCPqrKC3rOZsKzUYgYZA==
 
 "react-native-nitro-compass@link:..":
-  version "1.1.0"
+  version "1.2.4"
 
 react-native-nitro-modules@0.35.6:
   version "0.35.6"
   resolved "https://registry.yarnpkg.com/react-native-nitro-modules/-/react-native-nitro-modules-0.35.6.tgz#717a890fa033083f91765a586d433dd60492ac8b"
   integrity sha512-3Cb7s+O5tpZ6RdIiPOB/wi3IMfBxD6tl6VDF8gJ5zvM/BEGTWxwMMLjzmWmsYPKekdbYBznF6qp2d2SxixPy8g==
 
-react-native-reanimated@^4.3.0:
-  version "4.3.0"
-  resolved "https://registry.yarnpkg.com/react-native-reanimated/-/react-native-reanimated-4.3.0.tgz#e5284cebb85bed12d672134b39d0a1370460ae50"
-  integrity sha512-HOTTPdKtddXTOsmQxDASXEwLS3lqEHrKERD3XOgzSqWJ7L3x81Pnx7mTcKx1FKdkgomMug/XSmm1C6Z7GIowxA==
+react-native-reanimated@^4.3.1:
+  version "4.3.1"
+  resolved "https://registry.yarnpkg.com/react-native-reanimated/-/react-native-reanimated-4.3.1.tgz#dd390567f27a9245ae431d4992d9787a597ec914"
+  integrity sha512-KhGsS0YkCA+gusgyzlf9hnqzVPIR398KTpqXyqq/+yYJJPAvyEEPKcxlB0xtOOXSMrR2A9uRKVARVQhZwrOh+Q==
   dependencies:
     react-native-is-edge-to-edge "^1.3.1"
     semver "^7.7.3"
