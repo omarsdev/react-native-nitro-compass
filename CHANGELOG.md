@@ -1,3 +1,10 @@
+## [1.2.5](https://github.com/omarsdev/react-native-nitro-compass/compare/v1.2.4...v1.2.5) (2026-05-10)
+
+### 🐛 Bug Fixes
+
+* **android:** prevent crash on devices without magnetometer ([32aef76](https://github.com/omarsdev/react-native-nitro-compass/commit/32aef76d37f924dd514ba75970e6444eb695b8bd))
+* **android:** prevent crash on devices without magnetometer ([884eba4](https://github.com/omarsdev/react-native-nitro-compass/commit/884eba45b55603b7f08ed64110af7e3c4535d40f))
+
 ## [1.2.4](https://github.com/omarsdev/react-native-nitro-compass/compare/v1.2.3...v1.2.4) (2026-05-07)
 
 ### 🛠️ Other changes
