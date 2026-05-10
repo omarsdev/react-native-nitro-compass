@@ -290,7 +290,16 @@ class HybridNitroCompass : HybridNitroCompassSpec() {
       lastRawQuality = null
 
       registerLifecycleCallbacks()
-      subscribeLocked()
+      try {
+        subscribeLocked()
+      } catch (t: Throwable) {
+        // Roll back so a later lifecycle resubscribe (onActivityStarted ->
+        // handleForeground) doesn't keep re-throwing from inside Android's
+        // Activity dispatch and crash the app on devices without a
+        // magnetometer.
+        stopLocked()
+        throw t
+      }
     }
   }
 
@@ -631,7 +640,13 @@ class HybridNitroCompass : HybridNitroCompassSpec() {
   private fun handleForeground() {
     synchronized(this) {
       if (pauseOnBackground && started && !isSubscribed) {
-        subscribeLocked()
+        try {
+          subscribeLocked()
+        } catch (_: Throwable) {
+          // Never throw from an Activity lifecycle callback — would crash
+          // the host app. If the sensor is unavailable, stay unsubscribed.
+          stopLocked()
+        }
       }
     }
   }
