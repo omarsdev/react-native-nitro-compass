@@ -460,7 +460,15 @@ iOS does not re-prompt once permission is denied — direct the user to Settings
 ### Android: heading is silent, no events
 
 - Verify `hasCompass` is `true`. The Android emulator has a faked magnetometer; on a real device, `getDefaultSensor(TYPE_MAGNETIC_FIELD)` should return non-null.
-- Wrap the start in a try/catch — `subscribe` will throw if either accelerometer or magnetometer is missing on the device (extremely rare on modern hardware).
+- Wrap the start in a try/catch — `subscribe` will throw if either accelerometer or magnetometer is missing on the device (extremely rare on modern hardware). Always gate `subscribe()` on `hasCompass()` so the throw is the exceptional path, not the normal one.
+
+### Android: devices without a magnetometer
+
+A small fraction of Android hardware (some budget phones, rugged industrial units, ChromeOS tablets) ships without a magnetometer. The library:
+
+- Returns `false` from `hasCompass()` on those devices — always check it before subscribing.
+- Throws `IllegalStateException("No magnetometer on this device")` from `subscribe()` if you bypass the guard. The throw is contained to the calling frame: it does **not** propagate from any internal `Application.ActivityLifecycleCallbacks`, so a missing sensor cannot crash the host app on foreground transitions.
+- Declares `<uses-feature android:name="android.hardware.sensor.compass" android:required="false" />` in its manifest, so Play Store metadata correctly reflects that the library tolerates missing hardware. Override to `required="true"` in your app manifest if your product is unusable without a compass.
 
 ### Simulator shows no heading
 
